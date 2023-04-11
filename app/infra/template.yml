@@ -1,0 +1,25 @@
+TemplateVersion: 1
+Description: Template for thegoodseat api
+APIVersion: v1
+
+Globals:
+  Api:
+    Cors:
+      AllowMethods: [ 'GET','POST','OPTIONS','PUT','PATCH','DELETE' ]
+      AllowHeaders: [ '*' ]
+      AllowOrigin: [ '*' ]
+      AllowCredentials: true
+  Function:
+    MemorySize: 8192
+    Timeout: 15
+
+Functions:
+  HelloFunction:
+    Description: hello world function
+    CodeURI: app/lambda/hello
+    Path: hello
+    Name: helloHandlerForTestTest
+    Method: GET
+    Environment:
+      Variables:
+        SECRET_ENV: a secret
