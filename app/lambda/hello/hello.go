@@ -1,23 +1,23 @@
 package main
 
 import (
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
+	"context"
 	"net/http"
+
+	"github.com/aws/aws-lambda-go/events"
+	awslambda "github.com/aws/aws-lambda-go/lambda"
+	"vtc/business/v1/web"
+	"vtc/foundation/lambda"
 )
 
 func main() {
-	lambda.Start(HandleRequest)
+	awslambda.Start(web.NewHandler(handler))
 }
 
-func HandleRequest() (events.APIGatewayProxyResponse, error) {
-	return events.APIGatewayProxyResponse{
-		StatusCode: http.StatusOK,
-		Headers: map[string]string{
-			"Access-Control-Allow-Headers": "*",
-			"Access-Control-Allow-Methods": "GET,POST,OPTIONS,PUT,PATCH,DELETE",
-			"Access-Control-Allow-Origin":  "*",
-		},
-		Body: "Hello from the other side",
-	}, nil
+func handler(ctx context.Context, request events.APIGatewayProxyRequest, cfg *web.AppConfig) (events.APIGatewayProxyResponse, error) {
+	return lambda.SendResponse(ctx, http.StatusOK, struct {
+		Data string `json:"data"`
+	}{
+		Data: "Hello from AWS",
+	})
 }

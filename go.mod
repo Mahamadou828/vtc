@@ -1,4 +1,4 @@
-module infra
+module vtc
 
 go 1.18
 
@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-lambda-go v1.39.1
 	github.com/aws/constructs-go/constructs/v10 v10.1.270
 	github.com/aws/jsii-runtime-go v1.78.1
+	github.com/google/uuid v1.3.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
