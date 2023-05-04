@@ -3,6 +3,7 @@ Description: Template for thegoodseat api
 APIVersion: v1
 
 Globals:
+  SSMPoolName: tgs-with-go
   Api:
     Cors:
       AllowMethods: [ 'GET','POST','OPTIONS','PUT','PATCH','DELETE' ]
@@ -23,3 +24,5 @@ Functions:
     Environment:
       Variables:
         SECRET_ENV: a secret
+      Secrets:
+        - test
