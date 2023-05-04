@@ -11,8 +11,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"log"
 	"os"
+	"vtc/business/v1/sys/aws/ssm"
 
 	// "github.com/aws/aws-cdk-go/awscdk/v2/awssqs"
 	"github.com/aws/aws-cdk-go/awscdk/v2"
@@ -33,7 +36,8 @@ type Template struct {
 	Description     string `yaml:"Description"`
 	APIVersion      string `yaml:"APIVersion"`
 	Globals         struct {
-		Api struct {
+		SSMPoolName string `yaml:"SSMPoolName"`
+		Api         struct {
 			Cors struct {
 				AllowMethods     []string `yaml:"AllowMethods"`
 				AllowHeaders     []string `yaml:"AllowHeaders"`
@@ -58,7 +62,7 @@ type Function struct {
 	Method      string `yaml:"Method"`
 	Environment struct {
 		Variables map[string]string `yaml:"Variables"`
-		Secrets   map[string]string `yaml:"Secrets"`
+		Secrets   []string          `yaml:"Secrets"`
 	} `yaml:"Environment"`
 }
 
@@ -67,6 +71,14 @@ type InfraStackProps struct {
 }
 
 func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps) awscdk.Stack {
+	//Initialize a new aws session
+	sess, err := session.NewSession(&aws.Config{
+		Region: props.Env.Region,
+	})
+	if err != nil {
+		log.Fatalf("can't create a new aws session: %v", err)
+	}
+
 	//Initialize a aws stack
 	var sprops awscdk.StackProps
 	if props != nil {
@@ -173,8 +185,9 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 			Username:   jsii.String("master"),
 			SecretName: jsii.String("/local"),
 		},
-		InstanceType: ec2.InstanceType_Of(ec2.InstanceClass_MEMORY5, ec2.InstanceSize_LARGE),
-		Vpc:          vpc,
+		InstanceType:  ec2.InstanceType_Of(ec2.InstanceClass_MEMORY5, ec2.InstanceSize_LARGE),
+		Vpc:           vpc,
+		RemovalPolicy: awscdk.RemovalPolicy_DESTROY,
 	})
 
 	//================================================================= ApiGateway
@@ -205,13 +218,19 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		},
 	})
 
+	//extract secret from aws secret manager
+	secrets, err := ssm.GetSecrets(sess, template.Globals.SSMPoolName)
+	if err != nil {
+		log.Fatalf("can't get secrets from provided pool: %s err: %v", template.Globals.SSMPoolName, err)
+	}
+
 	for _, function := range template.Functions {
 		//create a new endpoint
 		endpoint := api.Root().AddResource(jsii.String(function.Path), nil)
 
 		//extract all environment variables
 		env := map[string]*string{}
-		for name, value := range function.Environment.Secrets {
+		for name, value := range function.Environment.Variables {
 			env[name] = jsii.String(value)
 		}
 
@@ -220,6 +239,14 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		env["COGNITO_CLIENT_POOL_ID"] = poolClient.UserPoolClientId()
 
 		//extract secret from aws secret manager and inject them into the environment variables.
+		for _, secret := range function.Environment.Secrets {
+			value, ok := secrets[secret]
+			if !ok {
+				log.Println("unable to retrieve secret: ", secret)
+				continue
+			}
+			env[secret] = jsii.String(value)
+		}
 
 		//create the new lambda function
 		lambdaFn := lambda.NewGoFunction(
