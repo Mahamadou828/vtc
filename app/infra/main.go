@@ -183,7 +183,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 	docdb.NewDatabaseCluster(stack, jsii.String("tgs-with-go-db"), &docdb.DatabaseClusterProps{
 		MasterUser: &docdb.Login{
 			Username:   jsii.String("master"),
-			SecretName: jsii.String("/local"),
+			SecretName: jsii.String("tgs-with-go-db-secret"),
 		},
 		InstanceType:  ec2.InstanceType_Of(ec2.InstanceClass_MEMORY5, ec2.InstanceSize_LARGE),
 		Vpc:           vpc,
