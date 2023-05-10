@@ -1,6 +1,7 @@
 TemplateVersion: 1
 Description: Template for thegoodseat api
 APIVersion: v1
+Transform: AWS::Serverless-2016-10-31
 
 Globals:
   SSMPoolName: tgs-with-go
@@ -14,7 +15,7 @@ Globals:
     MemorySize: 8192
     Timeout: 15
 
-Functions:
+Resources:
   HelloFunction:
     Description: hello world function
     CodeURI: app/lambda/hello

@@ -51,7 +51,7 @@ type Template struct {
 		} `yaml:"Function"`
 	} `yaml:"Globals"`
 
-	Functions map[string]Function `yaml:"Functions"`
+	Functions map[string]Function `yaml:"Resources"`
 }
 
 type Function struct {
