@@ -15,27 +15,26 @@ import (
 )
 
 const (
-	caFilePath = "./rds-combined-ca-bundle.pem"
+	caFilePath = "business/v1/sys/database/rds-combined-ca-bundle.pem"
 
 	connectTimeout = 5
 	queryTimeout   = 30
 
 	//connectionStringTemplate accepts 3 parameters: username, password, host, port and ssl
-	connectionStringTemplate = "mongodb://%s:%s@%s:%s/?ssl=%v&ssl_ca_certs=rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false"
+	connectionStringTemplate = "mongodb://%s:%s@%s:%s/"
 )
 
 // NewClient create a new database client connection. It accepts an aws session and a secret manager pool name to fetch
 // the credentials to connect to the database.
 func NewClient(ses *session.Session, secretPoolName string, sslEnabled bool) (*mongo.Client, error) {
 	//fetch the secret to connect to the database
-	//@todo for now the pool name is fixed but we should make it dynamic ( pass it as a environment variable )
 	secrets, err := ssm.GetSecrets(ses, secretPoolName)
 	if err != nil {
 		return nil, fmt.Errorf("can't fetch secrets to open db connection: %v", err)
 	}
 
-	connectionURI := fmt.Sprintf(connectionStringTemplate, secrets["username"], secrets["password"], secrets["host"], secrets["port"], sslEnabled)
-
+	connectionURI := fmt.Sprintf(connectionStringTemplate, secrets["username"], secrets["password"], secrets["host"], secrets["port"])
+	print(connectionURI, "\n")
 	tlsConfig, err := getCustomTLSConfig(caFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get TLS configuration: %v", err)
