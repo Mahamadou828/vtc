@@ -47,3 +47,6 @@ local/
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+
+#local environment file should not be committed
+.env.local
