@@ -12,7 +12,7 @@ COPY . /service
 
 WORKDIR /service
 
-RUN go build -o main app/lambda/hello/main.go
+RUN go build -o main ${codeURI}
 
 
 #Run the binary inside the lambda RIE ( Runtime Interface Emulator )

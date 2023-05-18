@@ -1,3 +1,7 @@
+// Package database implement expose method to allow communication with a mongodb database
+// using the standard mongo db library for go
+// https://github.com/mongodb/mongo-go-driver
+// https://www.mongodb.com/docs/drivers/go/current/usage-examples/deleteOne/
 package database
 
 import (
@@ -5,10 +9,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"vtc/business/v1/sys/aws/ssm"
@@ -19,28 +27,41 @@ const (
 
 	connectTimeout = 5
 	queryTimeout   = 30
-
-	//connectionStringTemplate accepts 3 parameters: username, password, host, port and ssl
-	connectionStringTemplate = "mongodb://%s:%s@%s:%s/"
 )
 
-// NewClient create a new database client connection. It accepts an aws session and a secret manager pool name to fetch
-// the credentials to connect to the database.
-func NewClient(ses *session.Session, secretPoolName string, sslEnabled bool) (*mongo.Client, error) {
+// NewClient open a new connection and return a client for the selected database.
+// It accepts an aws session and a secret manager pool name to fetch the credentials to connect to the database.
+func NewClient(ses *session.Session, secretPoolName, database string, sslEnabled bool) (*mongo.Database, error) {
+	q := make(url.Values)
+
 	//fetch the secret to connect to the database
 	secrets, err := ssm.GetSecrets(ses, secretPoolName)
 	if err != nil {
 		return nil, fmt.Errorf("can't fetch secrets to open db connection: %v", err)
 	}
 
-	connectionURI := fmt.Sprintf(connectionStringTemplate, secrets["username"], secrets["password"], secrets["host"], secrets["port"])
-	print(connectionURI, "\n")
+	if sslEnabled {
+		q.Set("ssl", strconv.FormatBool(sslEnabled))
+		q.Set("ssl_ca_certs", "rds-combined-ca-bundle.pem")
+		q.Set("replicaSet", "rs0")
+		q.Set("readPreference", "secondaryPreferred")
+		q.Set("retryWrites", "false")
+	}
+
+	//creating connection string
+	connectionURI := url.URL{
+		Scheme:   "mongodb",
+		User:     url.UserPassword(secrets["username"], secrets["password"]),
+		Host:     fmt.Sprintf("%v:%v", secrets["host"], secrets["port"]),
+		RawQuery: q.Encode(),
+	}
+
 	tlsConfig, err := getCustomTLSConfig(caFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get TLS configuration: %v", err)
 	}
 
-	clientOpt := options.Client().ApplyURI(connectionURI)
+	clientOpt := options.Client().ApplyURI(connectionURI.String())
 	if sslEnabled {
 		clientOpt = clientOpt.SetTLSConfig(tlsConfig)
 	}
@@ -61,31 +82,140 @@ func NewClient(ses *session.Session, secretPoolName string, sslEnabled bool) (*m
 		return nil, fmt.Errorf("failed to ping MongoDB cluster: %v", err)
 	}
 
-	return client, nil
+	return client.Database(database), nil
 }
 
-func Find(client *mongo.Client) {
+// Find executes a search and return all matching document.
+// The filter parameter must be a document containing query operators and can be used to select which documents are included in the result.
+// It cannot be nil. An empty document (e.g. bson.D{}) should be used to include all documents.
+func Find[T any](ctx context.Context, client *mongo.Database, collection string, filter bson.D) ([]T, error) {
+	var res []T
 
+	nCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	cur, err := client.Collection(collection).Find(nCtx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find collection with filter: %v, error: %v", filter, err)
+	}
+
+	defer cur.Close(nCtx)
+
+	for cur.Next(nCtx) {
+		var item T
+		if err := cur.Decode(&item); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal item from result into destination: %v", err)
+		}
+
+		res = append(res, item)
+	}
+
+	if err := cur.Err(); err != nil {
+		return nil, fmt.Errorf("failed to find in collection: %v", err)
+	}
+
+	return res, nil
 }
 
-func FindOne(client *mongo.Client) {
+// FindOne executes a search and return the first matching document.
+// The filter parameter must be a document containing query operators and can be used to select which documents are included in the result.
+// It cannot be nil. An empty document (e.g. bson.D{}) should be used to include all documents.
+func FindOne[T any](ctx context.Context, client *mongo.Database, collection string, filter bson.D, dest *T) error {
+	nCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
 
+	switch err := client.Collection(collection).FindOne(nCtx, filter).Decode(dest); err {
+	case mongo.ErrNoDocuments:
+		return fmt.Errorf("failed to find document with current filter: %v, error: %v", filter, err)
+	case nil:
+		break
+	default:
+		return fmt.Errorf("failed to find document error: %v", err)
+	}
+
+	return nil
 }
 
-func InsertOne(client *mongo.Client) {
+// InsertOne execute an insert query to insert a single document.
+// The data parameter must be the document to be inserted. It cannot be nil.
+// If the document does not have an _id field when transformed into BSON, one will be added automatically to the marshalled document.
+// The original document will not be modified.
+func InsertOne[T any](ctx context.Context, client *mongo.Database, collection string, data T) error {
+	nCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
 
+	res, err := client.Collection(collection).InsertOne(nCtx, data)
+	if err != nil {
+		return fmt.Errorf("failed to insert document: %v", err)
+	}
+
+	print(res.InsertedID)
+	return nil
 }
 
-func InsertMany(client *mongo.Client) {
+// InsertMany executes an insert command to insert multiple documents.
+// The data parameter must be a slice of documents to insert. The slice cannot be nil or empty. The elements must all be non-nil.
+// For any document that does not have an _id field when transformed into BSON, one will be added automatically to the marshalled document. The original document will not be modified.
+func InsertMany[T any](ctx context.Context, client *mongo.Database, collection string, data []T) error {
+	nCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
 
+	docs := make([]interface{}, len(data))
+
+	for i := range data {
+		docs[i] = data[i]
+	}
+
+	if _, err := client.Collection(collection).InsertMany(nCtx, docs); err != nil {
+		return fmt.Errorf("failed to insert many documents: %v", err)
+	}
+
+	return nil
 }
 
-func Delete(client *mongo.Client) {
+// DeleteOne executes a delete command to delete at most one document from the collection.
+// If no element was deleted the function will not return an error.
+func DeleteOne(ctx context.Context, client *mongo.Database, collection, id string) error {
+	nCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
 
+	bID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return fmt.Errorf("failed to create object id from given id: %v", err)
+	}
+
+	filter := bson.D{{"_id", bID}}
+
+	if _, err := client.Collection(collection).DeleteOne(nCtx, filter); err != nil {
+		return fmt.Errorf("failed to delete document: %v", err)
+	}
+
+	return nil
 }
 
-func Update(client *mongo.Client) {
+// UpdateOne executes an update command to update at most one document in the collection.
+// If no element was updated due to not matching the given id the function will not return an error.
+func UpdateOne[T any](ctx context.Context, client *mongo.Database, collection, id string, data T) error {
+	nCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
 
+	bID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return fmt.Errorf("failed to create object id from given id: %v", err)
+	}
+
+	filter := bson.D{{"_id", bID}}
+
+	update, err := bson.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal data: %v", err)
+	}
+
+	if _, err := client.Collection(collection).UpdateOne(nCtx, filter, update); err != nil {
+		return fmt.Errorf("failed to update document: %v", err)
+	}
+
+	return nil
 }
 
 func getCustomTLSConfig(caFilePath string) (*tls.Config, error) {
