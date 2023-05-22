@@ -14,7 +14,7 @@ import (
 	"vtc/foundation/lambda"
 )
 
-var client, err = database.NewClient(lambdasetup.SES, os.Getenv("DATABASE_POOL_NAME"), "tgs", lambdasetup.SSLEnable)
+var client, err = database.NewClient(lambdasetup.DatabaseConfig)
 
 func main() {
 	if err != nil {

@@ -10,6 +10,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.256
 	github.com/aws/constructs-go/constructs/v10 v10.2.9
 	github.com/aws/jsii-runtime-go v1.80.0
+	github.com/go-faker/faker/v4 v4.1.0
 	github.com/google/uuid v1.3.0
 	go.mongodb.org/mongo-driver v1.11.6
 	gopkg.in/yaml.v2 v2.4.0
@@ -36,6 +37,6 @@ require (
 	golang.org/x/mod v0.9.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/tools v0.7.0 // indirect
 )

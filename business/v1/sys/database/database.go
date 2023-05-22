@@ -15,11 +15,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/session"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"vtc/business/v1/sys/aws/ssm"
 )
 
 const (
@@ -29,19 +27,22 @@ const (
 	queryTimeout   = 30
 )
 
+type Config struct {
+	Username   string
+	Password   string
+	Host       string
+	Port       string
+	Database   string
+	SSLEnabled bool
+}
+
 // NewClient open a new connection and return a client for the selected database.
 // It accepts an aws session and a secret manager pool name to fetch the credentials to connect to the database.
-func NewClient(ses *session.Session, secretPoolName, database string, sslEnabled bool) (*mongo.Database, error) {
+func NewClient(cfg Config) (*mongo.Database, error) {
 	q := make(url.Values)
 
-	//fetch the secret to connect to the database
-	secrets, err := ssm.GetSecrets(ses, secretPoolName)
-	if err != nil {
-		return nil, fmt.Errorf("can't fetch secrets to open db connection: %v", err)
-	}
-
-	if sslEnabled {
-		q.Set("ssl", strconv.FormatBool(sslEnabled))
+	if cfg.SSLEnabled {
+		q.Set("ssl", strconv.FormatBool(cfg.SSLEnabled))
 		q.Set("ssl_ca_certs", "rds-combined-ca-bundle.pem")
 		q.Set("replicaSet", "rs0")
 		q.Set("readPreference", "secondaryPreferred")
@@ -51,18 +52,20 @@ func NewClient(ses *session.Session, secretPoolName, database string, sslEnabled
 	//creating connection string
 	connectionURI := url.URL{
 		Scheme:   "mongodb",
-		User:     url.UserPassword(secrets["username"], secrets["password"]),
-		Host:     fmt.Sprintf("%v:%v", secrets["host"], secrets["port"]),
+		User:     url.UserPassword(cfg.Username, cfg.Password),
+		Host:     fmt.Sprintf("%v:%v", cfg.Host, cfg.Port),
 		RawQuery: q.Encode(),
 	}
 
-	tlsConfig, err := getCustomTLSConfig(caFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get TLS configuration: %v", err)
-	}
-
 	clientOpt := options.Client().ApplyURI(connectionURI.String())
-	if sslEnabled {
+
+	//handling sll if enabled
+	if cfg.SSLEnabled {
+		tlsConfig, err := getCustomTLSConfig(caFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get TLS configuration: %v", err)
+		}
+
 		clientOpt = clientOpt.SetTLSConfig(tlsConfig)
 	}
 
@@ -82,7 +85,7 @@ func NewClient(ses *session.Session, secretPoolName, database string, sslEnabled
 		return nil, fmt.Errorf("failed to ping MongoDB cluster: %v", err)
 	}
 
-	return client.Database(database), nil
+	return client.Database(cfg.Database), nil
 }
 
 // Find executes a search and return all matching document.
