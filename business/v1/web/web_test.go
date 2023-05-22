@@ -37,6 +37,6 @@ func TestWeb(t *testing.T) {
 			return events.APIGatewayProxyResponse{}, nil
 		}
 
-		web.NewHandler(handler)(events.APIGatewayProxyRequest{})
+		web.NewHandler(handler, nil)(events.APIGatewayProxyRequest{})
 	}
 }

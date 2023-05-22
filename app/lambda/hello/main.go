@@ -20,10 +20,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to init database connection: %v", err)
 	}
-	awslambda.Start(web.NewHandler(handler))
+	awslambda.Start(web.NewHandler(handler, client))
 }
 
-func handler(ctx context.Context, request events.APIGatewayProxyRequest, cfg *web.AppConfig) (events.APIGatewayProxyResponse, error) {
+func handler(ctx context.Context, request events.APIGatewayProxyRequest, cfg *web.AppConfig, t *lambda.RequestTrace) (events.APIGatewayProxyResponse, error) {
 	return lambda.SendResponse(ctx, http.StatusOK, struct {
 		Data []string `json:"data"`
 	}{
