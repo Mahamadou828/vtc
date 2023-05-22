@@ -3,18 +3,18 @@ package cognito
 import (
 	"crypto/sha256"
 	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-
 	"github.com/aws/aws-sdk-go/service/cognitoidentityprovider"
 )
 
 // User represents all the user data store in cognito
 type User struct {
-	Email       string
-	PhoneNumber string
-	Name        string
-	Password    string
+	Email       string `faker:"email"`
+	PhoneNumber string `faker:"e_164_phone_number"`
+	Name        string `faker:"name"`
+	Password    string `faker:"password"`
 }
 
 // Session represent a user session obtained after authentication
@@ -26,10 +26,10 @@ type Session struct {
 
 // SignUp create a new user inside the aws cognito pool. The userID will be a hash of his email, phone number
 // and the clientID. This is done to allow multiple email or phone numbers accounts
-func SignUp(u User, sess *session.Session, clientID string) (string, error) {
+func SignUp(sess *session.Session, u User, clientID string) (string, error) {
 	client := cognitoidentityprovider.New(sess)
 
-	sub := generateSub(u.Email, u.Password, clientID)
+	sub := GenerateSub(u.Email, u.Password, clientID)
 
 	inp := &cognitoidentityprovider.SignUpInput{
 		ClientId: aws.String(clientID),
@@ -40,7 +40,7 @@ func SignUp(u User, sess *session.Session, clientID string) (string, error) {
 				Value: aws.String(u.Email),
 			},
 			{
-				Name:  aws.String("phoneNumber"),
+				Name:  aws.String("phone_number"),
 				Value: aws.String(u.PhoneNumber),
 			},
 			{
@@ -63,7 +63,7 @@ func Login(sess *session.Session, clientID, userID, password string) (Session, e
 	client := cognitoidentityprovider.New(sess)
 
 	inp := &cognitoidentityprovider.InitiateAuthInput{
-		AuthFlow: nil,
+		AuthFlow: aws.String(cognitoidentityprovider.AuthFlowTypeUserPasswordAuth),
 		AuthParameters: map[string]*string{
 			"USERNAME": aws.String(userID),
 			"PASSWORD": aws.String(password),
@@ -86,8 +86,8 @@ func Login(sess *session.Session, clientID, userID, password string) (Session, e
 	}, nil
 }
 
-// generateSub create a unique hash from the email, phone number and clientID that will be used as the user's id
-func generateSub(email, phoneNumber, clientID string) string {
+// GenerateSub create a unique hash from the email, phone number and clientID that will be used as the user's id
+func GenerateSub(email, phoneNumber, clientID string) string {
 	sub := email + phoneNumber + clientID
 	h := sha256.New()
 	h.Write([]byte(sub))

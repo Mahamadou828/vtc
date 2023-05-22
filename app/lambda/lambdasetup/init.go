@@ -9,14 +9,14 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"vtc/business/v1/sys/aws/ssm"
+	"vtc/business/v1/sys/database"
 )
 
-var err error
-var SES *session.Session
-var SSLEnable bool
+var DatabaseConfig database.Config
 
 func init() {
-	SES, err = session.NewSession(&aws.Config{
+	ses, err := session.NewSession(&aws.Config{
 		Region:                        aws.String(os.Getenv("AWS_REGION")),
 		CredentialsChainVerboseErrors: aws.Bool(true),
 		Credentials:                   credentials.NewEnvCredentials(),
@@ -25,8 +25,23 @@ func init() {
 		log.Fatalf("can't init a new aws session: %v", err)
 	}
 
-	SSLEnable, err = strconv.ParseBool(os.Getenv("DATABASE_SSL_ENABLE"))
+	SSLEnable, err := strconv.ParseBool(os.Getenv("DATABASE_SSL_ENABLE"))
 	if err != nil {
 		log.Fatalf("invalid argument for DATABASE_SSL_ENABLE: %v", err)
+	}
+
+	//fetch the secret to connect to the database
+	secrets, err := ssm.GetSecrets(ses, os.Getenv("DATABASE_POOL_NAME"))
+	if err != nil {
+		log.Fatalf("failed to fetch secret to construct database config: %v", err)
+	}
+
+	DatabaseConfig = database.Config{
+		Username:   secrets["username"],
+		Password:   secrets["password"],
+		Host:       secrets["host"],
+		Port:       secrets["port"],
+		Database:   os.Getenv("DATABASE_NAME"),
+		SSLEnabled: SSLEnable,
 	}
 }
