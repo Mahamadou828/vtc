@@ -5,6 +5,7 @@ tidy:
 	go mod tidy
 	go mod vendor
 
+# Run all unit test
 test:
 	docker run -p 20000:27017 --detach --name thegoodseat_test \
 	-e MONGO_INITDB_ROOT_USERNAME=user \
@@ -15,7 +16,14 @@ test:
 	docker rm thegoodseat_test
 
 #=================================================== lambda
+format-event:
+	go run app/tools/test/main.go --endpointURL $(endpointURL)
+
+build:
+	docker build -t lambda:local --build-arg codeURI=$(codeURI) .
+
 start:
+	go run app/tools/test/main.go --endpointURL $(endpointURL)
 	docker build -t lambda:local --build-arg codeURI=$(codeURI) .
 	docker compose up
 

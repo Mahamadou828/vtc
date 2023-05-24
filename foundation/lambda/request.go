@@ -22,12 +22,7 @@ var (
 
 // DecodeBody decode the body from base64 to json and parse it into the given dest
 func DecodeBody(body string, val any) error {
-	dBytes, err := base64.StdEncoding.DecodeString(body)
-	if err != nil {
-		return fmt.Errorf("failed to decode body: %v", err)
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(dBytes))
+	decoder := json.NewDecoder(strings.NewReader(body))
 	decoder.DisallowUnknownFields()
 
 	if err := decoder.Decode(val); err != nil {

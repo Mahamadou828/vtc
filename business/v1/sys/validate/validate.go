@@ -3,6 +3,7 @@ package validate
 
 import (
 	"errors"
+	"fmt"
 	"github.com/go-playground/validator/v10"
 	"reflect"
 	"regexp"
@@ -64,16 +65,12 @@ func Check(val any) error {
 			return err
 		}
 
-		var fields FieldErrors
+		var strErr string
 		for _, verror := range verrors {
-			field := FieldError{
-				Field: verror.Field(),
-				Error: verror.Translate(translator),
-			}
-			fields = append(fields, field)
+			strErr += fmt.Sprintf("%v - %v \n", verror.Field(), verror.Translate(translator))
 		}
 
-		return fields
+		return errors.New(strErr)
 	}
 
 	return nil
