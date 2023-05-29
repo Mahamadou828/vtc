@@ -4,12 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"net/http"
 )
 
 // SendResponse format the response to match the api proxy response format
 func SendResponse(ctx context.Context, status int, data any) (events.APIGatewayProxyResponse, error) {
+	trace, err := GetRequestTrace(ctx)
+	if err != nil {
+		return SendError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to retrieve request trace: %v", err))
+	}
+
 	b, err := json.Marshal(data)
 	if err != nil {
 		return SendError(ctx, http.StatusInternalServerError, errors.New("can't marshal response"))
@@ -22,7 +28,8 @@ func SendResponse(ctx context.Context, status int, data any) (events.APIGatewayP
 			"Access-Control-Allow-Methods": "GET,POST,OPTIONS,PUT,PATCH,DELETE",
 			"Access-Control-Allow-Origin":  "*",
 			"Content-Type":                 "application/json",
-			"TraceID":                      GetTraceID(ctx),
+			"TraceID":                      trace.ID,
+			"aggregator":                   trace.Aggregator,
 		},
 		Body: string(b),
 	}, nil

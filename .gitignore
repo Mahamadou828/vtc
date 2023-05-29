@@ -50,3 +50,9 @@ cdk.out
 
 #local environment file should not be committed
 .env.local
+
+#local json file for test
+event.local.json
+
+#local request file for test
+request.local.json

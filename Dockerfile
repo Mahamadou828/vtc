@@ -19,4 +19,6 @@ RUN go build -o main ${codeURI}
 FROM public.ecr.aws/lambda/go:latest
 COPY --from=app /service ${LAMBDA_TASK_ROOT}
 
+COPY ./event.local.json ${LAMBDA_TASK_ROOT}/event.local.json
+
 CMD ["main"]

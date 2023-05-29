@@ -12,6 +12,8 @@ services:
       - 20000:27017
     networks:
       - mongo-network
+    volumes:
+      - ./local/db:/data/db:rw
 
   mongo-express:
     image: mongo-express

@@ -62,7 +62,6 @@ type Function struct {
 	Method      string `yaml:"Method"`
 	Environment struct {
 		Variables map[string]string `yaml:"Variables"`
-		Secrets   []string          `yaml:"Secrets"`
 	} `yaml:"Environment"`
 }
 
@@ -234,19 +233,14 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 			env[name] = jsii.String(value)
 		}
 
+		//extract secret from aws secret manager and inject them into the environment variables.
+		for value, secret := range secrets {
+			env[secret] = jsii.String(value)
+		}
+
 		//put default environment variables
 		env["COGNITO_USER_POOL_ID"] = c.UserPoolId()
 		env["COGNITO_CLIENT_POOL_ID"] = poolClient.UserPoolClientId()
-
-		//extract secret from aws secret manager and inject them into the environment variables.
-		for _, secret := range function.Environment.Secrets {
-			value, ok := secrets[secret]
-			if !ok {
-				log.Println("unable to retrieve secret: ", secret)
-				continue
-			}
-			env[secret] = jsii.String(value)
-		}
 
 		//create the new lambda function
 		lambdaFn := lambda.NewGoFunction(

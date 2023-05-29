@@ -1,8 +1,10 @@
 package cognito_test
 
 import (
+	// load env variable from secret manager
 	_ "vtc/business/v1/sys/test"
 
+	"log"
 	"os"
 	"testing"
 
@@ -16,42 +18,46 @@ const (
 	failure = "\u2717"
 )
 
-func TestCognito(t *testing.T) {
-	t.Log("Given the need to interact with aws cognito")
+var (
+	sess *session.Session
+	u    cognito.User
+)
+
+func TestMain(m *testing.M) {
+	// init aws session
+	var err error
+	sess, err = session.NewSession()
+	if err != nil {
+		log.Fatalf("\t%s\t Test: \tShould be able to open a new session: %v", failure, err)
+	}
+
+	//mock a user
+	u.PhoneNumber = "+33756866932"
+	if err := faker.FakeData(&u); err != nil {
+		log.Fatalf("\t%s\t Test: \tShould be able to fake u data: %v", failure, err)
+	}
+
+	//Run test and exit
+	os.Exit(m.Run())
+}
+
+func Test_Signup(t *testing.T) {
+	t.Log("Given the need to signup a user")
 	{
-		sess, err := session.NewSession()
-		if err != nil {
-			t.Fatalf("\t%s\t Test: \tShould be able to open a new session: %v", failure, err)
+		if _, err := cognito.SignUp(sess, u, os.Getenv("COGNITO_CLIENT_ID")); err != nil {
+			t.Fatalf("\t%s\t Test: \tShould be able to signup a new user: %v", failure, err)
 		}
+		t.Logf("\t%s\t Test: \tShould be able to signup a new user", success)
+	}
+}
 
-		clientID := os.Getenv("COGNITO_CLIENT_ID")
-		if len(clientID) == 0 {
-			t.Fatalf("\t%s\t Test: \tA Cognito client id should be provide to run test", failure)
+func Test_Login(t *testing.T) {
+	t.Log("Given the need to log a user")
+	{
+		userID := cognito.GenerateSub(u.Email, u.Password, os.Getenv("COGNITO_CLIENT_ID"))
+		if _, err := cognito.Login(sess, os.Getenv("COGNITO_CLIENT_ID"), userID, u.Password); err != nil {
+			t.Fatalf("\t%s\t Test: \tShould be able to login the new user: %v", failure, err)
 		}
-
-		var u cognito.User
-
-		u.PhoneNumber = "+33756866932"
-
-		if err := faker.FakeData(&u); err != nil {
-			t.Fatalf("\t%s\t Test: \tShould be able to fake u data: %v", failure, err)
-		}
-
-		t.Log("Given the need to signup a user")
-		{
-			if _, err := cognito.SignUp(sess, u, clientID); err != nil {
-				t.Fatalf("\t%s\t Test: \tShould be able to signup a new user: %v", failure, err)
-			}
-			t.Logf("\t%s\t Test: \tShould be able to signup a new user", success)
-		}
-
-		t.Log("Given the need to log a user")
-		{
-			userID := cognito.GenerateSub(u.Email, u.Password, clientID)
-			if _, err := cognito.Login(sess, clientID, userID, u.Password); err != nil {
-				t.Fatalf("\t%s\t Test: \tShould be able to login the new user: %v", failure, err)
-			}
-			t.Logf("\t%s\t Test: \tShould be able to login the new user", success)
-		}
+		t.Logf("\t%s\t Test: \tShould be able to login the new user", success)
 	}
 }

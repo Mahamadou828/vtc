@@ -8,22 +8,22 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	awslambda "github.com/aws/aws-lambda-go/lambda"
-	"vtc/app/lambda/lambdasetup"
-	"vtc/business/v1/sys/database"
 	"vtc/business/v1/web"
+	"vtc/foundation/config"
 	"vtc/foundation/lambda"
 )
 
-var client, err = database.NewClient(lambdasetup.DatabaseConfig)
+var appCfg, err = config.NewApp()
 
 func main() {
 	if err != nil {
-		log.Fatalf("Failed to init database connection: %v", err)
+		log.Fatalf("failed to create a new app: %v", err)
 	}
-	awslambda.Start(web.NewHandler(handler))
+
+	awslambda.Start(web.NewHandler(handler, appCfg))
 }
 
-func handler(ctx context.Context, request events.APIGatewayProxyRequest, cfg *web.AppConfig) (events.APIGatewayProxyResponse, error) {
+func handler(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.App, t *lambda.RequestTrace) (events.APIGatewayProxyResponse, error) {
 	return lambda.SendResponse(ctx, http.StatusOK, struct {
 		Data []string `json:"data"`
 	}{
