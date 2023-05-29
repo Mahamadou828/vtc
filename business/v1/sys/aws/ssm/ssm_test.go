@@ -12,26 +12,23 @@ const (
 	failure = "\u2717"
 )
 
-func TestSSM(t *testing.T) {
-	t.Log("Given the need to handle secrets with aws ssm")
+func Test_GetSecrets(t *testing.T) {
+	sess, err := session.NewSession()
+	if err != nil {
+		t.Fatalf("\t%s\t Test: \tShould be able to open a new session: %v", failure, err)
+	}
+
+	t.Log("Given the need to fetch secrets")
 	{
-		sess, err := session.NewSession()
+		secrets, err := ssm.GetSecrets(sess, "tgs-with-go-db-secret-local")
 		if err != nil {
-			t.Fatalf("\t%s\t Test: \tShould be able to open a new session: %v", failure, err)
+			t.Fatalf("\t%s\t Test: \tShould be able to fetch secrets: %v", failure, err)
 		}
 
-		t.Log("Given the need to fetch secrets")
-		{
-			secrets, err := ssm.GetSecrets(sess, "tgs-with-go-db-secret-local")
-			if err != nil {
-				t.Fatalf("\t%s\t Test: \tShould be able to fetch secrets: %v", failure, err)
-			}
-
-			if val, ok := secrets["test"]; !ok || val != "test" {
-				t.Fatalf("\t%s\t Test: \tShould be able to fetch secrets: %v", failure, fmt.Errorf("secrets test missing value"))
-			}
-
-			t.Logf("\t%s\t Test: \tShould be able to fetch secrets", success)
+		if val, ok := secrets["test"]; !ok || val != "test" {
+			t.Fatalf("\t%s\t Test: \tShould be able to fetch secrets: %v", failure, fmt.Errorf("secrets test missing value"))
 		}
+
+		t.Logf("\t%s\t Test: \tShould be able to fetch secrets", success)
 	}
 }

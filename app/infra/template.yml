@@ -25,5 +25,17 @@ Resources:
     Environment:
       Variables:
         SECRET_ENV: a secret
-      Secrets:
-        - test
+
+  SignupFunction:
+    Description: signup new user function
+    CodeURI: app/lambda/signup
+    Path: signup
+    Name: signupHandler
+    Method: POST
+
+  LoginFunction:
+    Description: login a user function
+    CodeURI: app/lambda/login
+    Path: login
+    Name: loginHandler
+    Method: POST

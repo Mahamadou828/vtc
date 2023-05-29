@@ -3,16 +3,23 @@ package auth
 import (
 	"context"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson"
 	"time"
+	"vtc/foundation/config"
 
 	model "vtc/business/v1/data/models/auth"
 	"vtc/business/v1/sys/aws/cognito"
 	"vtc/business/v1/sys/stripe"
 	"vtc/business/v1/sys/validate"
-	"vtc/business/v1/web"
 )
 
-func SignUp(ctx context.Context, data model.NewUserDTO, cfg *web.AppConfig, agg string, now time.Time) (model.User, error) {
+type Session struct {
+	User   model.User      `json:"user"`
+	Tokens cognito.Session `json:"tokens"`
+}
+
+// SignUp create a new user account
+func SignUp(ctx context.Context, data model.NewUserDTO, cfg *config.App, agg string, now time.Time) (model.User, error) {
 	// create the user in cognito pool
 	id, err := cognito.SignUp(
 		cfg.AWSSession,
@@ -62,4 +69,22 @@ func SignUp(ctx context.Context, data model.NewUserDTO, cfg *web.AppConfig, agg 
 	}
 
 	return user, nil
+}
+
+// Login log a user and return a new Session
+func Login(ctx context.Context, cred model.LoginDTO, cfg *config.App, agg string) (Session, error) {
+	// fetch user from database
+	u, err := model.FindOne(ctx, cfg.DBClient, bson.D{{"email", cred.Email}, {"aggregator", agg}})
+	if err != nil {
+		return Session{}, fmt.Errorf("failed to find user: %v, error: %v", cred.Email, err)
+	}
+
+	// log the user inside cognito
+	tokens, err := cognito.Login(cfg.AWSSession, cfg.Env.Cognito.ClientID, u.CognitoID, cred.Password)
+	if err != nil {
+		return Session{}, fmt.Errorf("failed to log user: %v, error: %v", cred.Email, err)
+	}
+
+	//return a new session
+	return Session{u, tokens}, nil
 }

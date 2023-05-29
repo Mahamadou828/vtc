@@ -50,3 +50,9 @@ type NewUserDTO struct {
 	Name        string `json:"name,omitempty" validate:"required"`
 	Password    string `json:"password,omitempty" validate:"required"`
 }
+
+// LoginDTO define all information to log a user
+type LoginDTO struct {
+	Email    string `json:"email" validate:"email,required"`
+	Password string `json:"password" validate:"required"`
+}

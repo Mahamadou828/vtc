@@ -94,7 +94,7 @@ func NewClient(cfg Config) (*mongo.Database, error) {
 func Find[T any](ctx context.Context, client *mongo.Database, collection string, filter bson.D) ([]T, error) {
 	var res []T
 
-	nCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 
 	cur, err := client.Collection(collection).Find(nCtx, filter)
@@ -124,7 +124,7 @@ func Find[T any](ctx context.Context, client *mongo.Database, collection string,
 // The filter parameter must be a document containing query operators and can be used to select which documents are included in the result.
 // It cannot be nil. An empty document (e.g. bson.D{}) should be used to include all documents.
 func FindOne[T any](ctx context.Context, client *mongo.Database, collection string, filter bson.D, dest *T) error {
-	nCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 
 	switch err := client.Collection(collection).FindOne(nCtx, filter).Decode(dest); err {
@@ -144,7 +144,7 @@ func FindOne[T any](ctx context.Context, client *mongo.Database, collection stri
 // If the document does not have an _id field when transformed into BSON, one will be added automatically to the marshalled document.
 // The original document will not be modified.
 func InsertOne[T any](ctx context.Context, client *mongo.Database, collection string, data T) error {
-	nCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 
 	res, err := client.Collection(collection).InsertOne(nCtx, data)
@@ -160,7 +160,7 @@ func InsertOne[T any](ctx context.Context, client *mongo.Database, collection st
 // The data parameter must be a slice of documents to insert. The slice cannot be nil or empty. The elements must all be non-nil.
 // For any document that does not have an _id field when transformed into BSON, one will be added automatically to the marshalled document. The original document will not be modified.
 func InsertMany[T any](ctx context.Context, client *mongo.Database, collection string, data []T) error {
-	nCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 
 	docs := make([]interface{}, len(data))
@@ -179,7 +179,7 @@ func InsertMany[T any](ctx context.Context, client *mongo.Database, collection s
 // DeleteOne executes a delete command to delete at most one document from the collection.
 // If no element was deleted the function will not return an error.
 func DeleteOne(ctx context.Context, client *mongo.Database, collection, id string) error {
-	nCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 
 	bID, err := primitive.ObjectIDFromHex(id)
@@ -199,7 +199,7 @@ func DeleteOne(ctx context.Context, client *mongo.Database, collection, id strin
 // UpdateOne executes an update command to update at most one document in the collection.
 // If no element was updated due to not matching the given id the function will not return an error.
 func UpdateOne[T any](ctx context.Context, client *mongo.Database, collection, id string, data T) error {
-	nCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 
 	bID, err := primitive.ObjectIDFromHex(id)

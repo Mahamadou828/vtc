@@ -16,7 +16,7 @@ test:
 	docker rm thegoodseat_test
 
 #=================================================== lambda
-format-event:
+event-format:
 	go run app/tools/test/main.go --endpointURL $(endpointURL)
 
 build:
@@ -29,6 +29,12 @@ start:
 
 stop:
 	docker compose down
+
+lambda-update:
+	docker build -t lambda:local --build-arg codeURI=$(codeURI) .
+	docker compose up --detach --build lambda
+
+update: event-format lambda-update
 
 #=================================================== AWS CDK
 cdk-deploy:
