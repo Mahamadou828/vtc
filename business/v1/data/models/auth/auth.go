@@ -3,10 +3,10 @@ package auth
 import (
 	"context"
 	"fmt"
-	"vtc/business/v1/sys/database"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"vtc/business/v1/sys/database"
 )
 
 const (

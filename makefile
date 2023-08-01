@@ -1,4 +1,5 @@
 codeURI := app/lambda/hello/main.go
+baseEventFilePath := ./local/request
 
 # Vendor all the project dependencies.
 tidy:
@@ -17,13 +18,13 @@ test:
 
 #=================================================== lambda
 event-format:
-	go run app/tools/test/main.go --endpointURL $(endpointURL)
+	go run app/tools/test/main.go --endpointURL="$(endpointURL)" --eventFile="$(baseEventFilePath)/$(event).json"
 
 build:
 	docker build -t lambda:local --build-arg codeURI=$(codeURI) .
 
 start:
-	go run app/tools/test/main.go --endpointURL $(endpointURL)
+	go run app/tools/test/main.go --endpointURL="$(endpointURL)" --eventFile="$(baseEventFilePath)/$(event).json"
 	docker build -t lambda:local --build-arg codeURI=$(codeURI) .
 	docker compose up
 

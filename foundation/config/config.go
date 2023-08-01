@@ -21,6 +21,12 @@ type Env struct {
 	Stripe struct {
 		Key string `conf:"env:STRIPE_KEY,required"`
 	}
+	Providers struct {
+		Timeout int `conf:"env:PROVIDERS_DEFAULT_TIMEOUT"`
+		MySam   struct {
+			APIKey string `conf:"env:MY_SAM_API_KEY"`
+		}
+	}
 }
 
 var (

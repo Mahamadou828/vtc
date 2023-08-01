@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	RequestFilePath = "./request.local.json"
-	EventFilePath   = "./event.local.json"
+	EventFilePath = "./event.local.json"
 )
 
 func main() {
 	//parsing endpointURL parameter and extracting path and query parameter
 	endpointURL := flag.String("endpointURL", "", "URL of the endpoint to test")
+	eventFile := flag.String("eventFile", "", "URL of the endpoint to test")
 	flag.Parse()
 
 	u, err := url.Parse(*endpointURL)
@@ -27,7 +27,7 @@ func main() {
 
 	//reading the request file and extract the content in string
 	log.Println("opening the request file.")
-	content, err := os.ReadFile(RequestFilePath)
+	content, err := os.ReadFile(*eventFile)
 	if err != nil {
 		log.Fatalf("failed to open the request file: %v.", err)
 	}
