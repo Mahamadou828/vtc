@@ -39,3 +39,11 @@ Resources:
     Path: login
     Name: loginHandler
     Method: POST
+
+  GetOffersFunction:
+    Description: fetch offers from provider function
+    CodeURI: app/lambda/get-offers
+    Path: offers
+    Name: GetOffersHandler
+    Method: POST
+

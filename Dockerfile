@@ -17,6 +17,12 @@ RUN go build -o main ${codeURI}
 
 #Run the binary inside the lambda RIE ( Runtime Interface Emulator )
 FROM public.ecr.aws/lambda/go:latest
+
+#Set the timezone to paris
+ENV TZ=Europe/Paris
+
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 COPY --from=app /service ${LAMBDA_TASK_ROOT}
 
 COPY ./event.local.json ${LAMBDA_TASK_ROOT}/event.local.json
