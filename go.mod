@@ -15,6 +15,8 @@ require (
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/go-playground/validator/v10 v10.14.0
 	github.com/google/uuid v1.3.0
+	github.com/gorilla/mux v1.8.0
+	github.com/joho/godotenv v1.5.1
 	github.com/stripe/stripe-go/v74 v74.19.0
 	go.mongodb.org/mongo-driver v1.11.6
 	gopkg.in/yaml.v2 v2.4.0

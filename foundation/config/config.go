@@ -62,7 +62,6 @@ func NewApp() (*App, error) {
 
 	//fetch the secret to connect to the database
 	secrets, err := ssm.GetSecrets(sess, os.Getenv("DATABASE_POOL_NAME"))
-	fmt.Println(err)
 	if err != nil {
 		return nil, ErrSecretNotFound
 	}

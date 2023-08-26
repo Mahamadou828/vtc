@@ -1,11 +1,13 @@
 codeURI := app/lambda/hello/main.go
 baseEventFilePath := ./local/request
 
+#=================================================== dependencies management
 # Vendor all the project dependencies.
 tidy:
 	go mod tidy
 	go mod vendor
 
+#=================================================== testing
 # Run all unit test
 test:
 	docker run -p 20000:27017 --detach --name thegoodseat_test \
@@ -16,6 +18,16 @@ test:
 	docker stop thegoodseat_test
 	docker rm thegoodseat_test
 
+#=================================================== local api
+serve:
+	docker compose up -d
+	go run app/tools/dev/main.go
+
+#=================================================== db
+db-up:
+	docker compose up mongo -d
+	docker compose up mongo-express -d
+
 #=================================================== lambda
 event-format:
 	go run app/tools/test/main.go --endpointURL="$(endpointURL)" --eventFile="$(baseEventFilePath)/$(event).json"
@@ -23,7 +35,7 @@ event-format:
 build:
 	docker build -t lambda:local --build-arg codeURI=$(codeURI) .
 
-start:
+lambda-start:
 	go run app/tools/test/main.go --endpointURL="$(endpointURL)" --eventFile="$(baseEventFilePath)/$(event).json"
 	docker build -t lambda:local --build-arg codeURI=$(codeURI) .
 	docker compose up

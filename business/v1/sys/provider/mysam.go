@@ -95,8 +95,6 @@ func NewMySam(client *http.Client, cfg *config.App) MySam {
 }
 
 func (p MySam) GetOffers(ctx context.Context, _ UserInfo, s mOffer.Search, now time.Time) ([]mOffer.Offer, error) {
-	var res []mOffer.Offer
-
 	reqBody := struct {
 		FromLatitude          float64 `json:"fromLatitude"`
 		FromLongitude         float64 `json:"fromLongitude"`
@@ -111,6 +109,7 @@ func (p MySam) GetOffers(ctx context.Context, _ UserInfo, s mOffer.Search, now t
 		ToLatitude:            s.EndLatitude,
 		ToLongitude:           s.EndLongitude,
 		NBPassengers:          s.NbrOfPassenger,
+		StartDate:             time.Now().String(),
 		SignificantDisability: false,
 	}
 
@@ -130,34 +129,35 @@ func (p MySam) GetOffers(ctx context.Context, _ UserInfo, s mOffer.Search, now t
 	}
 
 	resp, err := p.Client.Do(req)
-
-	if resp.StatusCode == http.StatusBadRequest {
-		var data any
-
-		json.NewDecoder(resp.Body).Decode(&data)
-
-		fmt.Println(data)
-	}
-
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch offer: [%w]", err)
+		return nil, fmt.Errorf("failed to fetch mysam api: [%w]", err)
 	}
 	defer resp.Body.Close()
 
-	//@todo implement better error handling
-	decoder := json.NewDecoder(resp.Body)
+	//@todo think and learn about a better way to handle request responses
+	switch resp.StatusCode {
+	case http.StatusBadRequest:
+		var data any
+		json.NewDecoder(resp.Body).Decode(&data)
+		return nil, fmt.Errorf("failed to fetch offer for mysam, receive following error: %v", data)
+	case http.StatusOK:
+		var offers []MySamOffer
 
-	var offers []MySamOffer
-	if err := decoder.Decode(&offers); err != nil {
-		return nil, fmt.Errorf("failed to decode mysam response: [%w]", err)
+		decoder := json.NewDecoder(resp.Body)
+		if err := decoder.Decode(&offers); err != nil {
+			return nil, fmt.Errorf("failed to decode mysam offer format: [%w]", err)
+		}
+
+		var res []mOffer.Offer
+		for _, offer := range offers {
+			res = append(res, p.convertProviderOffer(offer, s, now))
+		}
+		return res, nil
+	default:
+		var data any
+		json.NewDecoder(resp.Body).Decode(&data)
+		return nil, fmt.Errorf("unsupported status response, receive status %v and response body %v", resp.StatusCode, data)
 	}
-
-	fmt.Println(offers)
-	for _, offer := range offers {
-		res = append(res, p.convertProviderOffer(offer, s, now))
-	}
-
-	return res, nil
 }
 
 func (p MySam) RequestRide(ctx context.Context, o mOffer.Offer, u UserInfo, s mOffer.Search, now time.Time) (mRide.Ride, error) {
@@ -316,7 +316,7 @@ func (p MySam) convertProviderOffer(offer MySamOffer, s mOffer.Search, now time.
 		StartDate:           p.convertMySamTime(offer.Estimation.StartDate).String(),
 		Provider:            "mySam",
 		ETA:                 offer.Estimation.Duration,
-		ProviderOfferID:     fmt.Sprint(offer.Estimation.Price),
+		ProviderOfferID:     fmt.Sprint(offer.Estimation.Id),
 		LogoURL:             p.LogoURL,
 		VehicleType:         p.OfferMapping[offer.Estimation.VehicleType],
 		ProviderOfferName:   offer.Estimation.VehicleType,

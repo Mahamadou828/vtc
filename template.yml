@@ -20,7 +20,7 @@ Resources:
     Description: hello world function
     CodeURI: app/lambda/hello
     Path: hello
-    Name: helloHandlerForTestTest
+    Name: helloHandler
     Method: GET
     Environment:
       Variables:
@@ -44,6 +44,6 @@ Resources:
     Description: fetch offers from provider function
     CodeURI: app/lambda/get-offers
     Path: offers
-    Name: GetOffersHandler
+    Name: getOffersHandler
     Method: POST
 

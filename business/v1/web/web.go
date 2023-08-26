@@ -32,7 +32,7 @@ func NewHandler(h Handler, cfg *config.App) LambdaHandler {
 		var err error
 		if os.Getenv("APP_ENV") == "local" {
 			//replace the passed request by a mock one before running the code
-			request, err = getLocalRequestEvent()
+			request, err = GetLocalRequestEvent()
 			if err != nil {
 				//@todo handle the error with telemetry
 				log.Fatalf("failed to extract local event: %v", err)
@@ -60,8 +60,8 @@ func NewHandler(h Handler, cfg *config.App) LambdaHandler {
 	}
 }
 
-// getLocalRequestEvent extract and parse local json file to mock event request
-func getLocalRequestEvent() (events.APIGatewayProxyRequest, error) {
+// GetLocalRequestEvent extract and parse local json file to mock event request
+func GetLocalRequestEvent() (events.APIGatewayProxyRequest, error) {
 	var event events.APIGatewayProxyRequest
 	file, err := os.Open(EventFilePath)
 	if err != nil {

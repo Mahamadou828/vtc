@@ -11,12 +11,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"log"
 	"os"
-	"vtc/business/v1/sys/aws/ssm"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"vtc/business/v1/sys/aws/ssm"
 	// "github.com/aws/aws-cdk-go/awscdk/v2/awssqs"
 	"github.com/aws/aws-cdk-go/awscdk/v2"
 	agw "github.com/aws/aws-cdk-go/awscdk/v2/awsapigateway"
@@ -199,7 +199,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 	)
 
 	//open and parse the template file
-	file, err := os.ReadFile("app/infra/template.yml")
+	file, err := os.ReadFile("template.yml")
 	if err != nil {
 		log.Fatalf("can't open template.yml: %v", err)
 	}

@@ -29,18 +29,5 @@ services:
     depends_on:
       - mongo
 
-  lambda:
-    image: lambda:local
-    restart: always
-    container_name: tgs-api-lambda
-    env_file:
-      - ./.env.local
-    ports:
-      - 9000:8080
-    networks:
-      - mongo-network
-    depends_on:
-      - mongo
-
 networks:
   mongo-network:
