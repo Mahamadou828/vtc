@@ -143,7 +143,7 @@ func FindOne[T any](ctx context.Context, client *mongo.Database, collection stri
 // The data parameter must be the document to be inserted. It cannot be nil.
 // If the document does not have an _id field when transformed into BSON, one will be added automatically to the marshalled document.
 // The original document will not be modified.
-func InsertOne[T any](ctx context.Context, client *mongo.Database, collection string, data T) error {
+func InsertOne[T any](ctx context.Context, client *mongo.Database, collection string, data *T) error {
 	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 
@@ -198,7 +198,7 @@ func DeleteOne(ctx context.Context, client *mongo.Database, collection, id strin
 
 // UpdateOne executes an update command to update at most one document in the collection.
 // If no element was updated due to not matching the given id the function will not return an error.
-func UpdateOne[T any](ctx context.Context, client *mongo.Database, collection, id string, data T) error {
+func UpdateOne[T any](ctx context.Context, client *mongo.Database, collection, id string, data *T) error {
 	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 

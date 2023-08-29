@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
-	model "vtc/business/v1/data/models/user"
+	"vtc/business/v1/data/models"
+	model "vtc/business/v1/data/models"
 	"vtc/business/v1/sys/aws/cognito"
 	"vtc/business/v1/sys/stripe"
 	"vtc/business/v1/sys/validate"
@@ -64,7 +65,7 @@ func SignUp(ctx context.Context, data model.NewUserDTO, cfg *config.App, agg str
 		DeletedAt:        "",
 	}
 
-	if err := model.InsertOne(ctx, cfg.DBClient, user); err != nil {
+	if err := models.InsertOne[model.User](ctx, cfg.DBClient, model.UserCollection, &user); err != nil {
 		return model.User{}, fmt.Errorf("failed to insert user: %v", err)
 	}
 
@@ -74,7 +75,7 @@ func SignUp(ctx context.Context, data model.NewUserDTO, cfg *config.App, agg str
 // Login log a user and return a new Session
 func Login(ctx context.Context, cred model.LoginDTO, cfg *config.App, agg string) (Session, error) {
 	// fetch user from database
-	u, err := model.FindOne(ctx, cfg.DBClient, bson.D{{"email", cred.Email}, {"aggregator", agg}})
+	u, err := models.FindOne[model.User](ctx, cfg.DBClient, model.UserCollection, bson.D{{"email", cred.Email}, {"aggregator", agg}})
 	if err != nil {
 		return Session{}, fmt.Errorf("failed to find user: %v, error: %v", cred.Email, err)
 	}
@@ -86,12 +87,12 @@ func Login(ctx context.Context, cred model.LoginDTO, cfg *config.App, agg string
 	}
 
 	//return a new session
-	return Session{u, tokens}, nil
+	return Session{User: *u, Tokens: tokens}, nil
 }
 
 // CreatePaymentMethod register a new user payment method, if 3DS is needed the URL will be send back with the response
 func CreatePaymentMethod(ctx context.Context, data model.NewPaymentMethodDTO, cfg *config.App, now time.Time) (stripe.PaymentIntent, error) {
-	u, err := model.FindOne(ctx, cfg.DBClient, bson.D{{"id", data.UserID}})
+	u, err := models.FindOne[model.User](ctx, cfg.DBClient, model.UserCollection, bson.D{{"id", data.UserID}})
 	if err != nil {
 		return stripe.PaymentIntent{}, fmt.Errorf("failed to find user with id: %v", data.UserID)
 	}
@@ -123,7 +124,7 @@ func CreatePaymentMethod(ctx context.Context, data model.NewPaymentMethodDTO, cf
 
 	u.PaymentMethods = append(u.PaymentMethods, pm)
 
-	if err := model.UpdateOne(ctx, cfg.DBClient, u.ID, u); err != nil {
+	if err := models.UpdateOne[model.User](ctx, cfg.DBClient, model.UserCollection, u.ID, u); err != nil {
 		return stripe.PaymentIntent{}, fmt.Errorf("failed to update user payment method: [%w]", err)
 	}
 

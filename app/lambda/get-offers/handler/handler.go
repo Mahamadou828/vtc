@@ -4,17 +4,17 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	
+
 	"github.com/aws/aws-lambda-go/events"
 	"vtc/business/v1/core/provider"
-	mOffer "vtc/business/v1/data/models/offer"
+	"vtc/business/v1/data/models"
 	"vtc/business/v1/sys/validate"
 	"vtc/foundation/config"
 	"vtc/foundation/lambda"
 )
 
 func Handler(ctx context.Context, req events.APIGatewayProxyRequest, cfg *config.App, t *lambda.RequestTrace) (events.APIGatewayProxyResponse, error) {
-	var data mOffer.GetOfferDTO
+	var data models.GetOfferDTO
 
 	if err := lambda.DecodeBody(req.Body, &data); err != nil {
 		return lambda.SendError(ctx, http.StatusBadRequest, fmt.Errorf("failed to decode body: %v", err))

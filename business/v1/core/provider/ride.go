@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	model "vtc/business/v1/data/models/ride"
+	model "vtc/business/v1/data/models"
 	"vtc/foundation/config"
 )
 

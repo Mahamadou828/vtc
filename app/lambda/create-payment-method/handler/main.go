@@ -3,17 +3,18 @@ package handler
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-lambda-go/events"
 	"net/http"
+
+	"github.com/aws/aws-lambda-go/events"
 	core "vtc/business/v1/core/user"
-	model "vtc/business/v1/data/models/user"
+	"vtc/business/v1/data/models"
 	"vtc/business/v1/sys/validate"
 	"vtc/foundation/config"
 	"vtc/foundation/lambda"
 )
 
 func Handler(ctx context.Context, req events.APIGatewayProxyRequest, cfg *config.App, t *lambda.RequestTrace) (events.APIGatewayProxyResponse, error) {
-	var data model.NewPaymentMethodDTO
+	var data models.NewPaymentMethodDTO
 
 	if err := lambda.DecodeBody(req.Body, &data); err != nil {
 		return lambda.SendError(ctx, http.StatusBadRequest, fmt.Errorf("failed to decode body: %v", err))

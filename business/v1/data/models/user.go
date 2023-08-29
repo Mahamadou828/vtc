@@ -1,4 +1,4 @@
-package user
+package models
 
 // User represent an individual user
 type User struct {
