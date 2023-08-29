@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
-	core "vtc/business/v1/core/auth"
-	model "vtc/business/v1/data/models/auth"
+	core "vtc/business/v1/core/user"
+	model "vtc/business/v1/data/models/user"
 	"vtc/business/v1/sys/validate"
 	"vtc/foundation/config"
 	"vtc/foundation/lambda"

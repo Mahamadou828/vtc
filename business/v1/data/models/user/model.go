@@ -1,4 +1,4 @@
-package auth
+package user
 
 // User represent an individual user
 type User struct {
@@ -38,6 +38,7 @@ type PaymentMethod struct {
 	IntentID          string `bson:"intentID" json:"intentID"`
 	PaymentServiceID  string `bson:"paymentServiceID" json:"paymentServiceID"`
 	CreditCardType    string `bson:"creditCardType" json:"creditCardType"`
+	IsFavorite        bool   `bson:"isFavorite" json:"isFavorite"`
 	CreatedAt         string `bson:"createdAt" json:"createdAt"`
 	UpdatedAt         string `bson:"updatedAt" json:"updatedAt"`
 	DeletedAt         string `bson:"deletedAt" json:"deletedAt"`
@@ -55,4 +56,16 @@ type NewUserDTO struct {
 type LoginDTO struct {
 	Email    string `json:"email" validate:"email,required"`
 	Password string `json:"password" validate:"required"`
+}
+
+// NewPaymentMethodDTO represent all data needed to create a new user payment method to pay for rides
+type NewPaymentMethodDTO struct {
+	CardNumber          string `json:"cardNumber" validate:"required"`
+	CardExpirationYear  int64  `json:"cardExpirationYear" validate:"required"`
+	CardExpirationMonth int64  `json:"cardExpirationMonth" validate:"required"`
+	ReturnUrl           string `json:"returnUrl" validate:"required"`
+	PaymentMethodName   string `json:"paymentMethodName" validate:"required"`
+	CardCVX             string `json:"cardCVX" validate:"required"`
+	UserID              string `json:"userID" validate:"required"`
+	IsFavorite          bool   `json:"isFavorite" validate:"required"`
 }

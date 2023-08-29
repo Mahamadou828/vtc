@@ -47,3 +47,9 @@ Resources:
     Name: getOffersHandler
     Method: POST
 
+  CreatePaymentMethodFunction:
+    Description: create a new payment user for a user
+    CodeURI: app/lambda/create-payment-method
+    Path: paymentmethod
+    Name: createPaymentMethodHandler
+    Method: POST

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	collectionName = "offer"
+	collectionName = "ride"
 )
 
 func Find(ctx context.Context, client *mongo.Database, filter bson.D) ([]Ride, error) {

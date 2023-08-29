@@ -1,16 +1,16 @@
-package auth
+package user
 
 import (
 	"context"
 	"fmt"
-	"go.mongodb.org/mongo-driver/bson"
 	"time"
-	"vtc/foundation/config"
 
-	model "vtc/business/v1/data/models/auth"
+	"go.mongodb.org/mongo-driver/bson"
+	model "vtc/business/v1/data/models/user"
 	"vtc/business/v1/sys/aws/cognito"
 	"vtc/business/v1/sys/stripe"
 	"vtc/business/v1/sys/validate"
+	"vtc/foundation/config"
 )
 
 type Session struct {
@@ -87,4 +87,45 @@ func Login(ctx context.Context, cred model.LoginDTO, cfg *config.App, agg string
 
 	//return a new session
 	return Session{u, tokens}, nil
+}
+
+// CreatePaymentMethod register a new user payment method, if 3DS is needed the URL will be send back with the response
+func CreatePaymentMethod(ctx context.Context, data model.NewPaymentMethodDTO, cfg *config.App, now time.Time) (stripe.PaymentIntent, error) {
+	u, err := model.FindOne(ctx, cfg.DBClient, bson.D{{"id", data.UserID}})
+	if err != nil {
+		return stripe.PaymentIntent{}, fmt.Errorf("failed to find user with id: %v", data.UserID)
+	}
+
+	pi, err := stripe.RegisterCard(cfg.Env.Stripe.Key, u.StripeID, data)
+	if err != nil {
+		return stripe.PaymentIntent{}, fmt.Errorf("failed to register a new credit card: [%w]", err)
+	}
+
+	// mark all other payment method as non-favorite since we can have only one favorite pm
+	if data.IsFavorite {
+		for _, pm := range u.PaymentMethods {
+			pm.IsFavorite = false
+		}
+	}
+
+	pm := model.PaymentMethod{
+		Name:              data.PaymentMethodName,
+		Active:            true,
+		CreditCardPayload: data.CardNumber[:3],
+		IntentID:          pi.IntentID,
+		PaymentServiceID:  pi.PaymentMethodID,
+		CreditCardType:    pi.CardType,
+		IsFavorite:        data.IsFavorite,
+		CreatedAt:         now.String(),
+		UpdatedAt:         now.String(),
+		DeletedAt:         "",
+	}
+
+	u.PaymentMethods = append(u.PaymentMethods, pm)
+
+	if err := model.UpdateOne(ctx, cfg.DBClient, u.ID, u); err != nil {
+		return stripe.PaymentIntent{}, fmt.Errorf("failed to update user payment method: [%w]", err)
+	}
+
+	return pi, nil
 }

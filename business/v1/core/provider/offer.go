@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
-	mUser "vtc/business/v1/data/models/auth"
 	mOffer "vtc/business/v1/data/models/offer"
+	mUser "vtc/business/v1/data/models/user"
 	"vtc/business/v1/sys/provider"
 	"vtc/business/v1/sys/validate"
 	"vtc/foundation/config"
