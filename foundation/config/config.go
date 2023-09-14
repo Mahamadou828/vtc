@@ -26,6 +26,9 @@ type Env struct {
 		MySam   struct {
 			APIKey string `conf:"env:MY_SAM_API_KEY"`
 		}
+		Uber struct {
+			Cookie string `conf:"env:UBER_COOKIE"`
+		}
 	}
 }
 
