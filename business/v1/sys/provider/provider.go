@@ -43,8 +43,11 @@ const (
 
 // UserInfo represent all the info needed to get offer and request ride
 type UserInfo struct {
-	ID      string
-	MySamID string
+	ID          string
+	MySamID     string
+	FirstName   string
+	LastName    string
+	PhoneNumber string
 }
 
 // IProvider represent any services that can return and handle ride process

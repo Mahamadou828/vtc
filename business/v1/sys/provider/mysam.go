@@ -9,8 +9,8 @@ import (
 	"io"
 	"net/http"
 	"time"
-	"vtc/business/v1/data/models"
 
+	"vtc/business/v1/data/models"
 	"vtc/business/v1/sys/validate"
 	"vtc/foundation/config"
 )
@@ -382,7 +382,6 @@ func (p MySam) newRequest(ctx context.Context, method, url string, body io.Reade
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(p.APIKey)
 	req.Header.Set("X-Api-Key", p.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
