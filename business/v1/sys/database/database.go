@@ -9,7 +9,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"net/url"
 	"os"
 	"strconv"
@@ -182,12 +181,7 @@ func DeleteOne(ctx context.Context, client *mongo.Database, collection, id strin
 	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 
-	bID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return fmt.Errorf("failed to create object id from given id: %v", err)
-	}
-
-	filter := bson.D{{"_id", bID}}
+	filter := bson.M{"_id": id}
 
 	if _, err := client.Collection(collection).DeleteOne(nCtx, filter); err != nil {
 		return fmt.Errorf("failed to delete document: %v", err)
@@ -198,23 +192,16 @@ func DeleteOne(ctx context.Context, client *mongo.Database, collection, id strin
 
 // UpdateOne executes an update command to update at most one document in the collection.
 // If no element was updated due to not matching the given id the function will not return an error.
-func UpdateOne[T any](ctx context.Context, client *mongo.Database, collection, id string, data *T) error {
+func UpdateOne[T any](ctx context.Context, client *mongo.Database, collection, id string, data T) error {
 	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 
-	bID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return fmt.Errorf("failed to create object id from given id: %v", err)
-	}
+	filter := bson.M{"_id": id}
 
-	filter := bson.D{{"_id", bID}}
+	update := bson.M{"$set": data}
 
-	update, err := bson.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal data: %v", err)
-	}
-
-	if _, err := client.Collection(collection).UpdateOne(nCtx, filter, update); err != nil {
+	opt := options.Update().SetUpsert(false)
+	if _, err := client.Collection(collection).UpdateOne(nCtx, filter, update, opt); err != nil {
 		return fmt.Errorf("failed to update document: %v", err)
 	}
 

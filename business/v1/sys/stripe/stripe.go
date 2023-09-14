@@ -2,10 +2,10 @@ package stripe
 
 import (
 	"fmt"
-	model "vtc/business/v1/data/models/user"
 
 	"github.com/stripe/stripe-go/v74"
 	"github.com/stripe/stripe-go/v74/client"
+	model "vtc/business/v1/data/models"
 )
 
 type Customer struct {
@@ -83,9 +83,19 @@ func RegisterCard(key string, userStripeID string, data model.NewPaymentMethodDT
 		return PaymentIntent{}, fmt.Errorf("failed to confirm the intent: [%w]", err)
 	}
 
+	var isThreeDSNeeded bool
+	var ThreeDSURL string
+
+	if resp.NextAction != nil {
+		if resp.NextAction.RedirectToURL != nil {
+			isThreeDSNeeded = len(resp.NextAction.RedirectToURL.URL) > 0
+			ThreeDSURL = resp.NextAction.RedirectToURL.URL
+		}
+	}
+
 	return PaymentIntent{
-		IsThreeDSNeeded: len(resp.NextAction.RedirectToURL.URL) > 0,
-		ThreeDSURL:      resp.NextAction.RedirectToURL.URL,
+		IsThreeDSNeeded: isThreeDSNeeded,
+		ThreeDSURL:      ThreeDSURL,
 		IntentID:        intent.ID,
 		PaymentMethodID: pm.ID,
 		CardType:        string(pm.Card.Brand),
@@ -104,30 +114,40 @@ func CancelPayment(key, preAuthID, reason string) bool {
 	return resp.Status == stripe.PaymentIntentStatusCanceled
 }
 
-// CreateCharge create a new payment, the capture method is manual, so you will need to call CapturePayment to finalize
-// the payment.
-func CreateCharge(key string, amount int64, userStripeID, paymentMethodID, returnURL string) (Charge, error) {
+// CreateCharge create a new payment, the capture method is manual, so you will need to call CapturePayment to finalize the process
+func CreateCharge(key string, amount float64, userStripeID, paymentMethodID, returnURL, currency string) (Charge, error) {
 	sc := client.New(key, nil)
 
 	intent, err := sc.PaymentIntents.New(&stripe.PaymentIntentParams{
-		Amount:        stripe.Int64(amount * 100),
+		Amount:        stripe.Int64(int64(amount) * 100),
 		Customer:      stripe.String(userStripeID),
 		PaymentMethod: stripe.String(paymentMethodID),
 		OffSession:    stripe.Bool(true),
 		Confirm:       stripe.Bool(true),
 		ReturnURL:     stripe.String(returnURL),
 		CaptureMethod: stripe.String("manual"),
+		Currency:      stripe.String(currency),
 	})
 
 	if err != nil {
 		return Charge{}, fmt.Errorf("failed to create a new payment intent: [%w]", err)
 	}
 
+	var url string
+	var challenge bool
+
+	if intent.NextAction != nil {
+		if intent.NextAction.RedirectToURL != nil {
+			url = intent.NextAction.RedirectToURL.URL
+			challenge = len(intent.NextAction.RedirectToURL.URL) > 0
+		}
+	}
+
 	return Charge{
 		ID:        intent.ID,
-		URL:       intent.NextAction.RedirectToURL.URL,
+		URL:       url,
 		Status:    intent.Status,
-		Challenge: len(intent.NextAction.RedirectToURL.URL) > 0,
+		Challenge: challenge,
 	}, nil
 }
 

@@ -92,7 +92,7 @@ func Login(ctx context.Context, cred model.LoginDTO, cfg *config.App, agg string
 
 // CreatePaymentMethod register a new user payment method, if 3DS is needed the URL will be send back with the response
 func CreatePaymentMethod(ctx context.Context, data model.NewPaymentMethodDTO, cfg *config.App, now time.Time) (stripe.PaymentIntent, error) {
-	u, err := models.FindOne[model.User](ctx, cfg.DBClient, model.UserCollection, bson.D{{"id", data.UserID}})
+	u, err := models.FindOne[model.User](ctx, cfg.DBClient, model.UserCollection, bson.D{{"_id", data.UserID}})
 	if err != nil {
 		return stripe.PaymentIntent{}, fmt.Errorf("failed to find user with id: %v", data.UserID)
 	}
@@ -104,17 +104,18 @@ func CreatePaymentMethod(ctx context.Context, data model.NewPaymentMethodDTO, cf
 
 	// mark all other payment method as non-favorite since we can have only one favorite pm
 	if data.IsFavorite {
-		for _, pm := range u.PaymentMethods {
-			pm.IsFavorite = false
+		for i := 0; i < len(u.PaymentMethods); i++ {
+			u.PaymentMethods[i].IsFavorite = false
 		}
 	}
 
 	pm := model.PaymentMethod{
+		ID:                validate.GenerateID(),
 		Name:              data.PaymentMethodName,
 		Active:            true,
 		CreditCardPayload: data.CardNumber[:3],
 		IntentID:          pi.IntentID,
-		PaymentServiceID:  pi.PaymentMethodID,
+		StripeID:          pi.PaymentMethodID,
 		CreditCardType:    pi.CardType,
 		IsFavorite:        data.IsFavorite,
 		CreatedAt:         now.String(),

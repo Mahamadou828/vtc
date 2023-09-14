@@ -2,13 +2,18 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"sync"
 	"time"
-	mRide "vtc/business/v1/data/models/ride"
 
-	mOffer "vtc/business/v1/data/models/offer"
+	"vtc/business/v1/data/models"
 	"vtc/foundation/config"
+)
+
+var (
+	ErrFailedToMarshalRequest = errors.New("failed to marshal request body")
+	ErrFailedToCreateRequest  = errors.New("failed to create new request")
 )
 
 const (
@@ -43,10 +48,10 @@ type UserInfo struct {
 
 // IProvider represent any services that can return and handle ride process
 type IProvider interface {
-	GetOffers(ctx context.Context, u UserInfo, s mOffer.Search, now time.Time) ([]mOffer.Offer, error)
-	RequestRide(ctx context.Context, o mOffer.Offer, u UserInfo, s mOffer.Search, now time.Time) (mRide.Ride, error)
-	GetRide(ctx context.Context, ride mRide.Ride) (mRide.Info, error)
-	CancelRide(ctx context.Context, ride mRide.Ride) (mRide.Info, error)
+	GetOffers(ctx context.Context, u UserInfo, s models.Search, now time.Time) ([]models.Offer, error)
+	RequestRide(ctx context.Context, o models.Offer, u UserInfo, s models.Search, now time.Time) (models.Ride, error)
+	GetRide(ctx context.Context, ride models.Ride) (models.Info, error)
+	CancelRide(ctx context.Context, ride models.Ride) (models.Info, error)
 	GetCancellationFees()
 }
 
@@ -63,8 +68,8 @@ func New(cfg *config.App) Integrations {
 	}
 }
 
-func (p Integrations) GetOffers(ctx context.Context, u UserInfo, s mOffer.Search, now time.Time) ([]mOffer.Offer, error) {
-	var res []mOffer.Offer
+func (p Integrations) GetOffers(ctx context.Context, u UserInfo, s models.Search, now time.Time) ([]models.Offer, error) {
+	var res []models.Offer
 
 	var wg sync.WaitGroup
 	wg.Add(len(s.AskedProvider))

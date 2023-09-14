@@ -53,3 +53,10 @@ Resources:
     Path: paymentmethod
     Name: createPaymentMethodHandler
     Method: POST
+
+  CreatePayment:
+    Description: create a new payment for a given offer
+    CodeURI: app/lambda/create-payment
+    Path: payment
+    Name: createPaymentHandler
+    Method: POST

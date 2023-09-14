@@ -27,13 +27,13 @@ func Find[T any](ctx context.Context, client *mongo.Database, collectionName Col
 }
 
 func FindOne[T any](ctx context.Context, client *mongo.Database, collectionName Collection, filter bson.D) (*T, error) {
-	var u *T
+	var u T
 
-	if err := database.FindOne[T](ctx, client, string(collectionName), filter, u); err != nil {
+	if err := database.FindOne[T](ctx, client, string(collectionName), filter, &u); err != nil {
 		return nil, fmt.Errorf("failed to find one %v: %v", collectionName, err)
 	}
 
-	return u, nil
+	return &u, nil
 }
 
 func InsertOne[T any](ctx context.Context, client *mongo.Database, collectionName Collection, u *T) error {
@@ -53,7 +53,7 @@ func InsertMany[T any](ctx context.Context, client *mongo.Database, collectionNa
 }
 
 func UpdateOne[T any](ctx context.Context, client *mongo.Database, collectionName Collection, id string, u *T) error {
-	if err := database.UpdateOne[T](ctx, client, string(collectionName), id, u); err != nil {
+	if err := database.UpdateOne[T](ctx, client, string(collectionName), id, *u); err != nil {
 		return fmt.Errorf("failed to update %v: %v", collectionName, err)
 	}
 

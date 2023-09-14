@@ -4,15 +4,20 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
+	"vtc/business/v1/data/models"
 
-	mOffer "vtc/business/v1/data/models/offer"
-	mRide "vtc/business/v1/data/models/ride"
 	"vtc/business/v1/sys/validate"
 	"vtc/foundation/config"
+)
+
+var (
+	MySAMFailedToFetchApi       = errors.New("failed to fetch mysam api")
+	MySAMUnexpectedResponseBody = errors.New("failed to decode response body")
 )
 
 type MySam struct {
@@ -94,7 +99,7 @@ func NewMySam(client *http.Client, cfg *config.App) MySam {
 	}
 }
 
-func (p MySam) GetOffers(ctx context.Context, _ UserInfo, s mOffer.Search, now time.Time) ([]mOffer.Offer, error) {
+func (p MySam) GetOffers(ctx context.Context, _ UserInfo, s models.Search, now time.Time) ([]models.Offer, error) {
 	reqBody := struct {
 		FromLatitude          float64 `json:"fromLatitude"`
 		FromLongitude         float64 `json:"fromLongitude"`
@@ -119,18 +124,18 @@ func (p MySam) GetOffers(ctx context.Context, _ UserInfo, s mOffer.Search, now t
 
 	data, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request body: [%w]", err)
+		return nil, fmt.Errorf("%w: %v", ErrFailedToMarshalRequest, err)
 	}
 
 	req, err := p.newRequest(ctx, http.MethodPost, p.endpoint("estimation/all"), bytes.NewReader(data))
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new request: [%w]", err)
+		return nil, fmt.Errorf("%w: %v", ErrFailedToCreateRequest, err)
 	}
 
 	resp, err := p.Client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch mysam api: [%w]", err)
+		return nil, fmt.Errorf("%w: %v", MySAMFailedToFetchApi, err)
 	}
 	defer resp.Body.Close()
 
@@ -145,10 +150,10 @@ func (p MySam) GetOffers(ctx context.Context, _ UserInfo, s mOffer.Search, now t
 
 		decoder := json.NewDecoder(resp.Body)
 		if err := decoder.Decode(&offers); err != nil {
-			return nil, fmt.Errorf("failed to decode mysam offer format: [%w]", err)
+			return nil, fmt.Errorf("%w: %v", MySAMUnexpectedResponseBody, err)
 		}
 
-		var res []mOffer.Offer
+		var res []models.Offer
 		for _, offer := range offers {
 			res = append(res, p.convertProviderOffer(offer, s, now))
 		}
@@ -160,7 +165,7 @@ func (p MySam) GetOffers(ctx context.Context, _ UserInfo, s mOffer.Search, now t
 	}
 }
 
-func (p MySam) RequestRide(ctx context.Context, o mOffer.Offer, u UserInfo, s mOffer.Search, now time.Time) (mRide.Ride, error) {
+func (p MySam) RequestRide(ctx context.Context, o models.Offer, u UserInfo, s models.Search, now time.Time) (models.Ride, error) {
 	orderType := "IMMEDIATE"
 	if o.IsPlanned {
 		orderType = "RESERVATION"
@@ -200,55 +205,73 @@ func (p MySam) RequestRide(ctx context.Context, o mOffer.Offer, u UserInfo, s mO
 
 	data, err := json.Marshal(reqBody)
 	if err != nil {
-		return mRide.Ride{}, fmt.Errorf("failed to marshal request body: [%w]", err)
+		return models.Ride{}, fmt.Errorf("%w: %v", ErrFailedToMarshalRequest, err)
 	}
 
 	req, err := p.newRequest(ctx, http.MethodPost, p.endpoint("trips/new"), bytes.NewReader(data))
 	if err != nil {
-		return mRide.Ride{}, fmt.Errorf("failed to create request: [%w]", err)
+		return models.Ride{}, fmt.Errorf("%w: %v", ErrFailedToCreateRequest, err)
 	}
 
 	resp, err := p.Client.Do(req)
 	if err != nil {
-		return mRide.Ride{}, fmt.Errorf("failed to request ride: [%w]", err)
+		return models.Ride{}, fmt.Errorf("%w: %v", MySAMFailedToFetchApi, err)
 	}
 	defer resp.Body.Close()
 
-	var ride MySamRide
-	decoder := json.NewDecoder(resp.Body)
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var ride MySamRide
+		decoder := json.NewDecoder(resp.Body)
 
-	if err := decoder.Decode(&ride); err != nil {
-		return mRide.Ride{}, fmt.Errorf("failed to decode response body: [%w]", err)
+		if err := decoder.Decode(&ride); err != nil {
+			return models.Ride{}, fmt.Errorf("%w: %v", MySAMUnexpectedResponseBody, err)
+		}
+
+		return p.convertProviderRide(ride, u, o, now), nil
+	case http.StatusBadRequest:
+		var data any
+		json.NewDecoder(resp.Body).Decode(&data)
+		return models.Ride{}, fmt.Errorf("failed to fetch offer for mysam, receive following error: %v", data)
+	default:
+		var data any
+		json.NewDecoder(resp.Body).Decode(&data)
+		return models.Ride{}, fmt.Errorf("unsupported status response, receive status %v and response body %v", resp.StatusCode, data)
 	}
 
-	return p.convertProviderRide(ride, u, o, now), nil
 }
 
-func (p MySam) GetRide(ctx context.Context, ride mRide.Ride) (mRide.Info, error) {
+func (p MySam) GetRide(ctx context.Context, ride models.Ride) (models.Info, error) {
 	url := p.endpoint("trips/" + ride.ProviderRideID)
 
 	req, err := p.newRequest(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return mRide.Info{}, fmt.Errorf("failed to create request: [%w]", err)
+		return models.Info{}, fmt.Errorf("%w: %v", ErrFailedToCreateRequest, err)
 	}
 
 	resp, err := p.Client.Do(req)
 	if err != nil {
-		return mRide.Info{}, fmt.Errorf("failed to fetch ride: [%w]", err)
+		return models.Info{}, fmt.Errorf("%w: %v", MySAMFailedToFetchApi, err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var data any
+		json.NewDecoder(resp.Body).Decode(&data)
+		return models.Info{}, fmt.Errorf("no ride found: %v", data)
+	}
 
 	var updatedRide MySamRide
 	decoder := json.NewDecoder(resp.Body)
 
 	if err := decoder.Decode(&ride); err != nil {
-		return mRide.Info{}, fmt.Errorf("failed to unmarshal ride: [%w]", err)
+		return models.Info{}, fmt.Errorf("failed to unmarshal ride: [%w]", err)
 	}
 
-	var driver mRide.Driver
+	var driver models.Driver
 
 	if updatedRide.Driver != nil {
-		driver = mRide.Driver{
+		driver = models.Driver{
 			DriverName:  fmt.Sprintf("%v %v", updatedRide.Driver.FirstName, updatedRide.Driver.LastName),
 			DriverPhone: updatedRide.Driver.MobilePhoneNumber,
 			CarPhoto:    "",
@@ -266,7 +289,7 @@ func (p MySam) GetRide(ctx context.Context, ride mRide.Ride) (mRide.Info, error)
 
 	}
 
-	return mRide.Info{
+	return models.Info{
 		Status:             p.StatusMapping[updatedRide.Status],
 		ProviderRideID:     ride.ProviderRideID,
 		ProviderStatusName: updatedRide.Status,
@@ -276,27 +299,27 @@ func (p MySam) GetRide(ctx context.Context, ride mRide.Ride) (mRide.Info, error)
 	}, nil
 }
 
-func (p MySam) CancelRide(ctx context.Context, ride mRide.Ride) (mRide.Info, error) {
+func (p MySam) CancelRide(ctx context.Context, ride models.Ride) (models.Info, error) {
 	url := p.endpoint(fmt.Sprintf("trips/%v/cancel", ride.ProviderRideID))
 
 	req, err := p.newRequest(ctx, http.MethodPut, url, nil)
 	if err != nil {
-		return mRide.Info{}, fmt.Errorf("failed to create request: [%w]", err)
+		return models.Info{}, fmt.Errorf("%w: %v", ErrFailedToCreateRequest, err)
 	}
 
 	resp, err := p.Client.Do(req)
 	if err != nil {
-		return mRide.Info{}, fmt.Errorf("failed to update ride: [%w]", err)
+		return models.Info{}, fmt.Errorf("failed to update ride: [%w]", err)
 	}
 
 	var updatedRide MySamRide
 	decoder := json.NewDecoder(resp.Body)
 
 	if err := decoder.Decode(&updatedRide); err != nil {
-		return mRide.Info{}, fmt.Errorf("failed to unmarshal mysam respon [%w]", err)
+		return models.Info{}, fmt.Errorf("failed to unmarshal mysam response [%w]", err)
 	}
 
-	return mRide.Info{
+	return models.Info{
 		Status:             p.StatusMapping[updatedRide.Status],
 		ProviderRideID:     ride.ProviderRideID,
 		ProviderStatusName: updatedRide.Status,
@@ -310,8 +333,8 @@ func (p MySam) GetCancellationFees() {
 
 }
 
-func (p MySam) convertProviderOffer(offer MySamOffer, s mOffer.Search, now time.Time) mOffer.Offer {
-	return mOffer.Offer{
+func (p MySam) convertProviderOffer(offer MySamOffer, s models.Search, now time.Time) models.Offer {
+	return models.Offer{
 		ID:                  validate.GenerateID(),
 		StartDate:           p.convertMySamTime(offer.Estimation.StartDate).String(),
 		Provider:            "mySam",
@@ -335,8 +358,8 @@ func (p MySam) convertProviderOffer(offer MySamOffer, s mOffer.Search, now time.
 	}
 }
 
-func (p MySam) convertProviderRide(ride MySamRide, u UserInfo, o mOffer.Offer, now time.Time) mRide.Ride {
-	return mRide.Ride{
+func (p MySam) convertProviderRide(ride MySamRide, u UserInfo, o models.Offer, now time.Time) models.Ride {
+	return models.Ride{
 		ID:      validate.GenerateID(),
 		UserID:  u.ID,
 		OfferID: o.ID,
@@ -353,10 +376,10 @@ func (p MySam) convertProviderRide(ride MySamRide, u UserInfo, o mOffer.Offer, n
 		DisplayPriceNumeric: ride.EstimatedPrice,
 		PriceStatus:         "pending",
 
-		Review:  mRide.Review{},
-		Invoice: mRide.Invoice{},
-		Payment: mRide.Payment{},
-		Driver:  mRide.Driver{},
+		Review:  models.Review{},
+		Invoice: models.Invoice{},
+		Payment: models.Payment{},
+		Driver:  models.Driver{},
 
 		CreatedAt: now.String(),
 		UpdatedAt: now.String(),
