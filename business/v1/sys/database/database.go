@@ -9,7 +9,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"net/url"
 	"os"
 	"strconv"
@@ -143,7 +142,7 @@ func FindOne[T any](ctx context.Context, client *mongo.Database, collection stri
 // The data parameter must be the document to be inserted. It cannot be nil.
 // If the document does not have an _id field when transformed into BSON, one will be added automatically to the marshalled document.
 // The original document will not be modified.
-func InsertOne[T any](ctx context.Context, client *mongo.Database, collection string, data T) error {
+func InsertOne[T any](ctx context.Context, client *mongo.Database, collection string, data *T) error {
 	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 
@@ -182,12 +181,7 @@ func DeleteOne(ctx context.Context, client *mongo.Database, collection, id strin
 	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 
-	bID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return fmt.Errorf("failed to create object id from given id: %v", err)
-	}
-
-	filter := bson.D{{"_id", bID}}
+	filter := bson.M{"_id": id}
 
 	if _, err := client.Collection(collection).DeleteOne(nCtx, filter); err != nil {
 		return fmt.Errorf("failed to delete document: %v", err)
@@ -202,19 +196,12 @@ func UpdateOne[T any](ctx context.Context, client *mongo.Database, collection, i
 	nCtx, cancel := context.WithTimeout(ctx, queryTimeout*time.Second)
 	defer cancel()
 
-	bID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return fmt.Errorf("failed to create object id from given id: %v", err)
-	}
+	filter := bson.M{"_id": id}
 
-	filter := bson.D{{"_id", bID}}
+	update := bson.M{"$set": data}
 
-	update, err := bson.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal data: %v", err)
-	}
-
-	if _, err := client.Collection(collection).UpdateOne(nCtx, filter, update); err != nil {
+	opt := options.Update().SetUpsert(false)
+	if _, err := client.Collection(collection).UpdateOne(nCtx, filter, update, opt); err != nil {
 		return fmt.Errorf("failed to update document: %v", err)
 	}
 

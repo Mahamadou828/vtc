@@ -4,18 +4,18 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"vtc/business/v1/sys/validate"
 
 	"github.com/aws/aws-lambda-go/events"
-	core "vtc/business/v1/core/auth"
-	model "vtc/business/v1/data/models/auth"
+	core "vtc/business/v1/core/user"
+	"vtc/business/v1/data/models"
+	"vtc/business/v1/sys/validate"
 	"vtc/foundation/config"
 	"vtc/foundation/lambda"
 )
 
 func Handler(ctx context.Context, request events.APIGatewayProxyRequest, cfg *config.App, t *lambda.RequestTrace) (events.APIGatewayProxyResponse, error) {
 	// Unmarshal body request and validate it
-	var nu model.NewUserDTO
+	var nu models.NewUserDTO
 	if err := lambda.DecodeBody(request.Body, &nu); err != nil {
 		return lambda.SendError(ctx, http.StatusBadRequest, fmt.Errorf("failed to decode body: %v", err))
 	}

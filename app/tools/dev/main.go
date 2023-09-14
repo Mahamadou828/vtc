@@ -24,6 +24,8 @@ import (
 	"vtc/foundation/config"
 	"vtc/foundation/lambda"
 
+	createPaymentMethod "vtc/app/lambda/create-payment-method/handler"
+	createPayment "vtc/app/lambda/create-payment/handler"
 	getOffers "vtc/app/lambda/get-offers/handler"
 	hello "vtc/app/lambda/hello/handler"
 	login "vtc/app/lambda/login/handler"
@@ -65,10 +67,12 @@ type Function struct {
 }
 
 var mapFunctionNameHandler = map[string]web.Handler{
-	"loginHandler":     login.Handler,
-	"getOffersHandler": getOffers.Handler,
-	"signupHandler":    signup.Handler,
-	"helloHandler":     hello.Handler,
+	"loginHandler":               login.Handler,
+	"getOffersHandler":           getOffers.Handler,
+	"signupHandler":              signup.Handler,
+	"helloHandler":               hello.Handler,
+	"createPaymentMethodHandler": createPaymentMethod.Handler,
+	"createPaymentHandler":       createPayment.Handler,
 }
 
 func main() {
@@ -99,92 +103,94 @@ func main() {
 	router := mux.NewRouter()
 
 	for _, function := range template.Functions {
-		log.Printf("Registering new route [%s] with path [%s]", function.Name, function.Path)
-		router.HandleFunc("/"+function.Path, func(writer http.ResponseWriter, request *http.Request) {
-			vars := mux.Vars(request)
-			writer.Header().Set("Content-Type", "application/json")
+		func(function Function) {
+			log.Printf("Registering new route [%s] with path [%s]", function.Name, function.Path)
+			router.HandleFunc("/"+function.Path, func(writer http.ResponseWriter, request *http.Request) {
+				vars := mux.Vars(request)
+				writer.Header().Set("Content-Type", "application/json")
 
-			event, err := web.GetLocalRequestEvent()
-			if err != nil {
-				log.Fatalf("failed to create a mock event object: %v", err)
-			}
-
-			event.Path = request.URL.Path
-			event.PathParameters = vars
-			event.QueryStringParameters = vars
-
-			bodyBytes, err := io.ReadAll(request.Body)
-			if err != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-				resp := struct {
-					Err error `json:"error"`
-				}{
-					Err: err,
+				event, err := web.GetLocalRequestEvent()
+				if err != nil {
+					log.Fatalf("failed to create a mock event object: %v", err)
 				}
-				respBytes, _ := json.Marshal(resp)
-				writer.Write(respBytes)
-				return
-			}
-			event.Body = string(bodyBytes)
 
-			handler, ok := mapFunctionNameHandler[function.Name]
-			if !ok {
-				writer.WriteHeader(http.StatusInternalServerError)
-				resp := struct {
-					Err string `json:"error"`
-				}{
-					Err: fmt.Sprintf("handler for the current route %v is missing", function.Name),
+				event.Path = request.URL.Path
+				event.PathParameters = vars
+				event.QueryStringParameters = vars
+
+				bodyBytes, err := io.ReadAll(request.Body)
+				if err != nil {
+					writer.WriteHeader(http.StatusInternalServerError)
+					resp := struct {
+						Err error `json:"error"`
+					}{
+						Err: err,
+					}
+					respBytes, _ := json.Marshal(resp)
+					writer.Write(respBytes)
+					return
 				}
-				respBytes, _ := json.Marshal(resp)
-				writer.Write(respBytes)
-				return
-			}
+				event.Body = string(bodyBytes)
 
-			//extract aggregator from header
-			agg := request.Header.Get("aggregator")
-			if len(agg) < 1 {
-				writer.WriteHeader(http.StatusInternalServerError)
-				resp := struct {
-					Err string `json:"error"`
-				}{
-					Err: "missing aggregator code in request header",
+				handler, ok := mapFunctionNameHandler[function.Name]
+				if !ok {
+					writer.WriteHeader(http.StatusInternalServerError)
+					resp := struct {
+						Err string `json:"error"`
+					}{
+						Err: fmt.Sprintf("handler for the current route %v is missing", function.Name),
+					}
+					respBytes, _ := json.Marshal(resp)
+					writer.Write(respBytes)
+					return
 				}
-				respBytes, _ := json.Marshal(resp)
-				writer.Write(respBytes)
-				return
-			}
 
-			//Create a new request trace
-			trace := lambda.RequestTrace{
-				Now:        time.Now(),
-				ID:         uuid.NewString(),
-				Aggregator: agg,
-			}
-
-			//Put the new trace inside the context
-			ctx := context.WithValue(context.Background(), lambda.CtxKey, &trace)
-
-			resp, err := handler(ctx, event, app, &trace)
-
-			if err != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-				resp := struct {
-					Err string `json:"error"`
-				}{
-					Err: fmt.Sprintf("failed to call handler: %v", err),
+				//extract aggregator from header
+				agg := request.Header.Get("aggregator")
+				if len(agg) < 1 {
+					writer.WriteHeader(http.StatusInternalServerError)
+					resp := struct {
+						Err string `json:"error"`
+					}{
+						Err: "missing aggregator code in request header",
+					}
+					respBytes, _ := json.Marshal(resp)
+					writer.Write(respBytes)
+					return
 				}
-				respBytes, _ := json.Marshal(resp)
-				writer.Write(respBytes)
+
+				//Create a new request trace
+				trace := lambda.RequestTrace{
+					Now:        time.Now(),
+					ID:         uuid.NewString(),
+					Aggregator: agg,
+				}
+
+				//Put the new trace inside the context
+				ctx := context.WithValue(context.Background(), lambda.CtxKey, &trace)
+
+				resp, err := handler(ctx, event, app, &trace)
+
+				if err != nil {
+					writer.WriteHeader(http.StatusInternalServerError)
+					resp := struct {
+						Err string `json:"error"`
+					}{
+						Err: fmt.Sprintf("failed to call handler: %v", err),
+					}
+					respBytes, _ := json.Marshal(resp)
+					writer.Write(respBytes)
+					return
+				}
+
+				writer.WriteHeader(resp.StatusCode)
+
+				writer.Write([]byte(resp.Body))
+
 				return
-			}
 
-			writer.WriteHeader(resp.StatusCode)
-
-			writer.Write([]byte(resp.Body))
-
-			return
-
-		}).Methods(function.Method)
+			}).Methods(function.Method)
+		}(function)
 	}
 
 	// Construct a server to service the requests against the mux.

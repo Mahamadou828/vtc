@@ -1,4 +1,4 @@
-package offer
+package models
 
 import "time"
 

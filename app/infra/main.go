@@ -109,7 +109,7 @@ func NewInfraStack(scope constructs.Construct, id string, props *InfraStackProps
 		},
 	)
 
-	//create a cognito pool for auth
+	//create a cognito pool for user
 	c := cognito.NewUserPool(stack, jsii.String("tgs-with-go-pool"), &cognito.UserPoolProps{
 		UserPoolName:  jsii.String("tgs-with-go-pool"),
 		RemovalPolicy: awscdk.RemovalPolicy_DESTROY,

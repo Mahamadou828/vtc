@@ -6,16 +6,15 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
-	mUser "vtc/business/v1/data/models/auth"
-	mOffer "vtc/business/v1/data/models/offer"
+	"vtc/business/v1/data/models"
 	"vtc/business/v1/sys/provider"
 	"vtc/business/v1/sys/validate"
 	"vtc/foundation/config"
 )
 
 // GetOffers return all offer that match the given search
-func GetOffers(ctx context.Context, data mOffer.GetOfferDTO, cfg *config.App, agg string, now time.Time) ([]mOffer.Offer, error) {
-	u, err := mUser.FindOne(ctx, cfg.DBClient, bson.D{{"_id", data.UserID}})
+func GetOffers(ctx context.Context, data models.GetOfferDTO, cfg *config.App, agg string, now time.Time) ([]models.Offer, error) {
+	u, err := models.FindOne[models.User](ctx, cfg.DBClient, models.UserCollection, bson.D{{"_id", data.UserID}})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find user %v: [%w]", data.UserID, err)
 	}
@@ -33,7 +32,7 @@ func GetOffers(ctx context.Context, data mOffer.GetOfferDTO, cfg *config.App, ag
 		startDate, isPlanned = date, true
 	}
 
-	search := mOffer.Search{
+	search := models.Search{
 		ID:         validate.GenerateID(),
 		UserID:     u.ID,
 		Aggregator: agg,
@@ -64,7 +63,7 @@ func GetOffers(ctx context.Context, data mOffer.GetOfferDTO, cfg *config.App, ag
 		return nil, fmt.Errorf("failed to fetch offer: [%w]", err)
 	}
 
-	if err := mOffer.InsertMany(ctx, cfg.DBClient, offers); err != nil {
+	if err := models.InsertMany[models.Offer](ctx, cfg.DBClient, models.OfferCollection, offers); err != nil {
 		return nil, fmt.Errorf("failed to save offers: [%w]", err)
 	}
 

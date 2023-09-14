@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
-	"vtc/business/v1/core/provider"
+	core "vtc/business/v1/core/user"
 	"vtc/business/v1/data/models"
 	"vtc/business/v1/sys/validate"
 	"vtc/foundation/config"
@@ -14,22 +14,20 @@ import (
 )
 
 func Handler(ctx context.Context, req events.APIGatewayProxyRequest, cfg *config.App, t *lambda.RequestTrace) (events.APIGatewayProxyResponse, error) {
-	var data models.GetOfferDTO
+	var data models.NewPaymentMethodDTO
 
 	if err := lambda.DecodeBody(req.Body, &data); err != nil {
 		return lambda.SendError(ctx, http.StatusBadRequest, fmt.Errorf("failed to decode body: %v", err))
 	}
+
 	if err := validate.Check(&data); err != nil {
-		return lambda.SendError(ctx, http.StatusBadRequest, fmt.Errorf("invalid body: %v", err))
-	}
-	if err := validate.CheckID(data.UserID); err != nil {
-		return lambda.SendError(ctx, http.StatusBadRequest, fmt.Errorf("invalid user id"))
+		return lambda.SendError(ctx, http.StatusBadRequest, fmt.Errorf("invalid request body: %v", err))
 	}
 
-	offers, err := provider.GetOffers(ctx, data, cfg, t.Aggregator, t.Now)
+	pm, err := core.CreatePaymentMethod(ctx, data, cfg, t.Now)
 	if err != nil {
-		return lambda.SendError(ctx, http.StatusBadRequest, fmt.Errorf("failed to get offer: %v", err))
+		return lambda.SendError(ctx, http.StatusBadRequest, fmt.Errorf("failed to create a new payment method: %v", err))
 	}
 
-	return lambda.SendResponse(ctx, http.StatusOK, offers)
+	return lambda.SendResponse(ctx, http.StatusCreated, pm)
 }

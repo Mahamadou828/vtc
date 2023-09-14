@@ -1,4 +1,4 @@
-package ride
+package models
 
 import "time"
 
@@ -91,4 +91,12 @@ type Info struct {
 	Price              float64
 	ETA                float64
 	Driver             Driver
+}
+
+// CreatePaymentDTO create a new payment for a ride
+type CreatePaymentDTO struct {
+	ReturnURL      string `json:"returnURL" validate:"required"`
+	OfferID        string `json:"offerID" validate:"required"`
+	UserID         string `json:"userID" validate:"required"`
+	AggregatorCode string `json:"aggregatorCode" validate:"required"`
 }

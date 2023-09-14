@@ -121,7 +121,7 @@ func Test_InsertOne(t *testing.T) {
 
 	t.Log("Given the need to insert document")
 	{
-		if err := database.InsertOne(context.Background(), client, "test", test); err != nil {
+		if err := database.InsertOne(context.Background(), client, "test", &test); err != nil {
 			t.Logf("\t%s\t Test: \tShould be able to insert a document: %v", failure, err)
 		}
 		t.Logf("\t%s\t Test: \tShould be able to insert a document", success)
