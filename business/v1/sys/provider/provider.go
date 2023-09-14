@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
 	"vtc/business/v1/data/models"
 	"vtc/foundation/config"
+	"vtc/foundation/lambda"
 )
 
 var (
@@ -76,22 +76,23 @@ func (p Integrations) GetOffers(ctx context.Context, u UserInfo, s models.Search
 	wg.Add(len(s.AskedProvider))
 
 	var mu sync.Mutex
+	errorCh := make(chan error, len(s.AskedProvider))
 
 	for _, provider := range s.AskedProvider {
 		go func(provider string) {
+			defer wg.Done()
+
 			integrations, ok := p.providers[provider]
 			// check if the asked provider exist
 			if !ok {
-				//@todo handle when a non existing provider was query
-				wg.Done()
+				errorCh <- fmt.Errorf("provider %s doesn't exist", provider)
 				return
 			}
 
 			//fetch offer from the given provider
 			offers, err := integrations.GetOffers(ctx, u, s, now)
 			if err != nil {
-				//@todo handle when provider return an error
-				wg.Done()
+				errorCh <- err
 				return
 			}
 
@@ -101,13 +102,20 @@ func (p Integrations) GetOffers(ctx context.Context, u UserInfo, s models.Search
 				res = append(res, offers...)
 			}
 			mu.Unlock()
-
-			// finish the given task
-			wg.Done()
 		}(provider)
 	}
 
+	// Wait for all goroutines to finish.
 	wg.Wait()
+
+	// Close the error channel to indicate that all errors have been collected.
+	close(errorCh)
+
+	for err := range errorCh {
+		trace, _ := lambda.GetRequestTrace(ctx)
+		lambda.CaptureError(trace, http.StatusInternalServerError, err)
+	}
+
 	return res, nil
 }
 
