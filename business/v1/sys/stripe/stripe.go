@@ -8,6 +8,17 @@ import (
 	model "vtc/business/v1/data/models"
 )
 
+// List of values that PaymentIntentStatus can take
+const (
+	PaymentIntentStatusCanceled              stripe.PaymentIntentStatus = "canceled"
+	PaymentIntentStatusProcessing            stripe.PaymentIntentStatus = "processing"
+	PaymentIntentStatusRequiresAction        stripe.PaymentIntentStatus = "requires_action"
+	PaymentIntentStatusRequiresCapture       stripe.PaymentIntentStatus = "requires_capture"
+	PaymentIntentStatusRequiresConfirmation  stripe.PaymentIntentStatus = "requires_confirmation"
+	PaymentIntentStatusRequiresPaymentMethod stripe.PaymentIntentStatus = "requires_payment_method"
+	PaymentIntentStatusSucceeded             stripe.PaymentIntentStatus = "succeeded"
+)
+
 type Customer struct {
 	Email       string
 	PhoneNumber string
@@ -174,14 +185,14 @@ func CapturePayment(key, preAuthID string, amount int64) error {
 	return nil
 }
 
-// GetPaymentStatus retrieve the status of the given payment
-func GetPaymentStatus(key, id string) (stripe.PaymentIntentStatus, error) {
+// GetPaymentIntent retrieve a stripe payment intent
+func GetPaymentIntent(key, id string) (*stripe.PaymentIntent, error) {
 	sc := client.New(key, nil)
 
 	pi, err := sc.PaymentIntents.Get(id, nil)
 	if err != nil {
-		return stripe.PaymentIntentStatusCanceled, fmt.Errorf("failed to retrieve the given payment: [%w]", err)
+		return nil, fmt.Errorf("failed to retrieve the given payment: [%w]", err)
 	}
 
-	return pi.Status, nil
+	return pi, nil
 }

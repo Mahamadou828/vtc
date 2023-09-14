@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -49,9 +50,9 @@ type UserInfo struct {
 // IProvider represent any services that can return and handle ride process
 type IProvider interface {
 	GetOffers(ctx context.Context, u UserInfo, s models.Search, now time.Time) ([]models.Offer, error)
-	RequestRide(ctx context.Context, o models.Offer, u UserInfo, s models.Search, now time.Time) (models.Ride, error)
-	GetRide(ctx context.Context, ride models.Ride) (models.Info, error)
-	CancelRide(ctx context.Context, ride models.Ride) (models.Info, error)
+	RequestRide(ctx context.Context, o models.Offer, u UserInfo, s models.Search, now time.Time) (models.ProviderRide, error)
+	GetRide(ctx context.Context, ride models.Ride) (models.ProviderRide, error)
+	CancelRide(ctx context.Context, ride models.Ride) (models.ProviderRide, error)
 	GetCancellationFees()
 }
 
@@ -108,4 +109,17 @@ func (p Integrations) GetOffers(ctx context.Context, u UserInfo, s models.Search
 
 	wg.Wait()
 	return res, nil
+}
+
+func (p Integrations) RequestRide(ctx context.Context, o models.Offer, u UserInfo, s models.Search, now time.Time) (models.ProviderRide, error) {
+	ride, err := p.providers[o.Provider].RequestRide(ctx, o, u, s, now)
+	if err != nil {
+		return models.ProviderRide{}, fmt.Errorf("failed to request ride for the given provider %v: %w", o.Provider, err)
+	}
+
+	return ride, err
+}
+
+func (p Integrations) CancelRide(ctx context.Context, ride models.Ride) (models.ProviderRide, error) {
+	return p.providers[ride.ProviderName].CancelRide(ctx, ride)
 }
