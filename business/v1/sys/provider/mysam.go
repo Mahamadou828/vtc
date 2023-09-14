@@ -165,7 +165,7 @@ func (p MySam) GetOffers(ctx context.Context, _ UserInfo, s models.Search, now t
 	}
 }
 
-func (p MySam) RequestRide(ctx context.Context, o models.Offer, u UserInfo, s models.Search, now time.Time) (models.Ride, error) {
+func (p MySam) RequestRide(ctx context.Context, o models.Offer, u UserInfo, s models.Search, now time.Time) (models.ProviderRide, error) {
 	orderType := "IMMEDIATE"
 	if o.IsPlanned {
 		orderType = "RESERVATION"
@@ -205,17 +205,17 @@ func (p MySam) RequestRide(ctx context.Context, o models.Offer, u UserInfo, s mo
 
 	data, err := json.Marshal(reqBody)
 	if err != nil {
-		return models.Ride{}, fmt.Errorf("%w: %v", ErrFailedToMarshalRequest, err)
+		return models.ProviderRide{}, fmt.Errorf("%w: %v", ErrFailedToMarshalRequest, err)
 	}
 
 	req, err := p.newRequest(ctx, http.MethodPost, p.endpoint("trips/new"), bytes.NewReader(data))
 	if err != nil {
-		return models.Ride{}, fmt.Errorf("%w: %v", ErrFailedToCreateRequest, err)
+		return models.ProviderRide{}, fmt.Errorf("%w: %v", ErrFailedToCreateRequest, err)
 	}
 
 	resp, err := p.Client.Do(req)
 	if err != nil {
-		return models.Ride{}, fmt.Errorf("%w: %v", MySAMFailedToFetchApi, err)
+		return models.ProviderRide{}, fmt.Errorf("%w: %v", MySAMFailedToFetchApi, err)
 	}
 	defer resp.Body.Close()
 
@@ -225,47 +225,47 @@ func (p MySam) RequestRide(ctx context.Context, o models.Offer, u UserInfo, s mo
 		decoder := json.NewDecoder(resp.Body)
 
 		if err := decoder.Decode(&ride); err != nil {
-			return models.Ride{}, fmt.Errorf("%w: %v", MySAMUnexpectedResponseBody, err)
+			return models.ProviderRide{}, fmt.Errorf("%w: %v", MySAMUnexpectedResponseBody, err)
 		}
 
 		return p.convertProviderRide(ride, u, o, now), nil
 	case http.StatusBadRequest:
 		var data any
 		json.NewDecoder(resp.Body).Decode(&data)
-		return models.Ride{}, fmt.Errorf("failed to fetch offer for mysam, receive following error: %v", data)
+		return models.ProviderRide{}, fmt.Errorf("failed to fetch offer for mysam, receive following error: %v", data)
 	default:
 		var data any
 		json.NewDecoder(resp.Body).Decode(&data)
-		return models.Ride{}, fmt.Errorf("unsupported status response, receive status %v and response body %v", resp.StatusCode, data)
+		return models.ProviderRide{}, fmt.Errorf("unsupported status response, receive status %v and response body %v", resp.StatusCode, data)
 	}
 
 }
 
-func (p MySam) GetRide(ctx context.Context, ride models.Ride) (models.Info, error) {
+func (p MySam) GetRide(ctx context.Context, ride models.Ride) (models.ProviderRide, error) {
 	url := p.endpoint("trips/" + ride.ProviderRideID)
 
 	req, err := p.newRequest(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return models.Info{}, fmt.Errorf("%w: %v", ErrFailedToCreateRequest, err)
+		return models.ProviderRide{}, fmt.Errorf("%w: %v", ErrFailedToCreateRequest, err)
 	}
 
 	resp, err := p.Client.Do(req)
 	if err != nil {
-		return models.Info{}, fmt.Errorf("%w: %v", MySAMFailedToFetchApi, err)
+		return models.ProviderRide{}, fmt.Errorf("%w: %v", MySAMFailedToFetchApi, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		var data any
 		json.NewDecoder(resp.Body).Decode(&data)
-		return models.Info{}, fmt.Errorf("no ride found: %v", data)
+		return models.ProviderRide{}, fmt.Errorf("no ride found: %v", data)
 	}
 
 	var updatedRide MySamRide
 	decoder := json.NewDecoder(resp.Body)
 
 	if err := decoder.Decode(&ride); err != nil {
-		return models.Info{}, fmt.Errorf("failed to unmarshal ride: [%w]", err)
+		return models.ProviderRide{}, fmt.Errorf("failed to unmarshal ride: [%w]", err)
 	}
 
 	var driver models.Driver
@@ -289,43 +289,43 @@ func (p MySam) GetRide(ctx context.Context, ride models.Ride) (models.Info, erro
 
 	}
 
-	return models.Info{
-		Status:             p.StatusMapping[updatedRide.Status],
-		ProviderRideID:     ride.ProviderRideID,
-		ProviderStatusName: updatedRide.Status,
-		Price:              updatedRide.EstimatedPrice,
-		ETA:                ride.ETA,
-		Driver:             driver,
+	return models.ProviderRide{
+		Status:     p.StatusMapping[updatedRide.Status],
+		Id:         ride.ProviderRideID,
+		StatusName: updatedRide.Status,
+		Price:      updatedRide.EstimatedPrice,
+		ETA:        ride.ETA,
+		Driver:     driver,
 	}, nil
 }
 
-func (p MySam) CancelRide(ctx context.Context, ride models.Ride) (models.Info, error) {
+func (p MySam) CancelRide(ctx context.Context, ride models.Ride) (models.ProviderRide, error) {
 	url := p.endpoint(fmt.Sprintf("trips/%v/cancel", ride.ProviderRideID))
 
 	req, err := p.newRequest(ctx, http.MethodPut, url, nil)
 	if err != nil {
-		return models.Info{}, fmt.Errorf("%w: %v", ErrFailedToCreateRequest, err)
+		return models.ProviderRide{}, fmt.Errorf("%w: %v", ErrFailedToCreateRequest, err)
 	}
 
 	resp, err := p.Client.Do(req)
 	if err != nil {
-		return models.Info{}, fmt.Errorf("failed to update ride: [%w]", err)
+		return models.ProviderRide{}, fmt.Errorf("failed to update ride: [%w]", err)
 	}
 
 	var updatedRide MySamRide
 	decoder := json.NewDecoder(resp.Body)
 
 	if err := decoder.Decode(&updatedRide); err != nil {
-		return models.Info{}, fmt.Errorf("failed to unmarshal mysam response [%w]", err)
+		return models.ProviderRide{}, fmt.Errorf("failed to unmarshal mysam response [%w]", err)
 	}
 
-	return models.Info{
-		Status:             p.StatusMapping[updatedRide.Status],
-		ProviderRideID:     ride.ProviderRideID,
-		ProviderStatusName: updatedRide.Status,
-		Price:              updatedRide.EstimatedPrice,
-		ETA:                ride.ETA,
-		Driver:             ride.Driver,
+	return models.ProviderRide{
+		Status:     p.StatusMapping[updatedRide.Status],
+		Id:         ride.ProviderRideID,
+		StatusName: updatedRide.Status,
+		Price:      updatedRide.EstimatedPrice,
+		ETA:        ride.ETA,
+		Driver:     ride.Driver,
 	}, nil
 }
 
@@ -358,32 +358,14 @@ func (p MySam) convertProviderOffer(offer MySamOffer, s models.Search, now time.
 	}
 }
 
-func (p MySam) convertProviderRide(ride MySamRide, u UserInfo, o models.Offer, now time.Time) models.Ride {
-	return models.Ride{
-		ID:      validate.GenerateID(),
-		UserID:  u.ID,
-		OfferID: o.ID,
-
-		IsPlanned:           o.IsPlanned,
-		ETA:                 o.ETA,
-		CancellationFees:    0,
-		StartDate:           p.convertMySamTime(ride.StartDate),
-		PaymentByTGS:        true,
-		Aggregator:          o.Aggregator,
-		Status:              p.StatusMapping[ride.Status],
-		ProviderPrice:       ride.EstimatedPrice,
-		DisplayPrice:        fmt.Sprintf("%f %s", ride.EstimatedPrice, "€"),
-		DisplayPriceNumeric: ride.EstimatedPrice,
-		PriceStatus:         "pending",
-
-		Review:  models.Review{},
-		Invoice: models.Invoice{},
-		Payment: models.Payment{},
-		Driver:  models.Driver{},
-
-		CreatedAt: now.String(),
-		UpdatedAt: now.String(),
-		DeletedAt: "",
+func (p MySam) convertProviderRide(ride MySamRide, u UserInfo, o models.Offer, now time.Time) models.ProviderRide {
+	return models.ProviderRide{
+		Id:         string(rune(ride.Id)),
+		Status:     p.StatusMapping[ride.Status],
+		StatusName: ride.Status,
+		Price:      ride.EstimatedPrice,
+		ETA:        o.ETA,
+		Driver:     models.Driver{},
 	}
 }
 

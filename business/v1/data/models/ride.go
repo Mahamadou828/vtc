@@ -2,20 +2,21 @@ package models
 
 import "time"
 
-// Ride represent a ride order by a user
+// Ride represent a tgs ride order by a user
 type Ride struct {
 	ID             string `json:"id" bson:"_id"`
 	UserID         string `json:"userID" bson:"userID"`
 	OfferID        string `json:"offerID" bson:"offerID"`
 	ProviderRideID string `json:"providerRideID" bson:"providerRideID"`
+	ProviderName   string `json:"providerName" bson:"providerName"`
 
-	IsPlanned        bool      `json:"isPlanned" bson:"isPlanned"`
-	ETA              float64   `json:"ETA" bson:"ETA"`
-	CancellationFees float64   `json:"cancellationFees" bson:"cancellationFees"`
-	StartDate        time.Time `json:"startDate" bson:"startDate"`
-	PaymentByTGS     bool      `json:"paymentByTGS" bson:"paymentByTGS"`
-	Aggregator       string    `json:"aggregator" bson:"aggregator"`
-	Status           string    `json:"status" bson:"status"`
+	IsPlanned        bool    `json:"isPlanned" bson:"isPlanned"`
+	ETA              float64 `json:"ETA" bson:"ETA"`
+	CancellationFees float64 `json:"cancellationFees" bson:"cancellationFees"`
+	StartDate        string  `json:"startDate" bson:"startDate"`
+	PaymentByTGS     bool    `json:"paymentByTGS" bson:"paymentByTGS"`
+	Aggregator       string  `json:"aggregator" bson:"aggregator"`
+	Status           string  `json:"status" bson:"status"`
 
 	ProviderPrice       float64 `json:"providerPrice" bson:"providerPrice"`
 	DisplayPrice        string  `json:"displayPrice" bson:"displayPrice"`
@@ -30,6 +31,16 @@ type Ride struct {
 	CreatedAt string `json:"createdAt" bson:"createdAt"`
 	UpdatedAt string `json:"updatedAt" bson:"updatedAt"`
 	DeletedAt string `json:"deletedAt" bson:"deletedAt"`
+}
+
+// ProviderRide represent all the common data that provider share regarding their ride
+type ProviderRide struct {
+	Id         string
+	Status     string
+	StatusName string
+	Price      float64
+	ETA        float64
+	Driver     Driver
 }
 
 // Driver represent a driver assign to a ride
@@ -83,20 +94,18 @@ type Payment struct {
 	DeletedAt string `json:"deletedAt" bson:"deletedAt"`
 }
 
-// Info represent the data that change during the execution of the ride
-type Info struct {
-	Status             string
-	ProviderRideID     string
-	ProviderStatusName string
-	Price              float64
-	ETA                float64
-	Driver             Driver
-}
-
 // CreatePaymentDTO create a new payment for a ride
 type CreatePaymentDTO struct {
 	ReturnURL      string `json:"returnURL" validate:"required"`
-	OfferID        string `json:"offerID" validate:"required"`
-	UserID         string `json:"userID" validate:"required"`
+	OfferID        string `json:"offerID" validate:"required,uuid"`
+	UserID         string `json:"userID" validate:"required,uuid"`
 	AggregatorCode string `json:"aggregatorCode" validate:"required"`
+}
+
+// NewRideDTO order a new ride for a given provider offer
+type NewRideDTO struct {
+	OfferID        string `json:"offerID" validate:"required,uuid"`
+	UserID         string `json:"userID" validate:"required,uuid"`
+	AggregatorCode string `json:"aggregatorCode" validate:"required"`
+	StripeIntentID string `json:"stripeIntentID" validate:"required"`
 }

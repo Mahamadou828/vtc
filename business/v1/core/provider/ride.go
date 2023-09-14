@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"vtc/business/v1/sys/provider"
+	"vtc/business/v1/sys/validate"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"vtc/business/v1/data/models"
@@ -42,10 +44,78 @@ func CreatePayment(ctx context.Context, data models.CreatePaymentDTO, cfg *confi
 	return charge, nil
 }
 
-func RequestRide() {}
+func RequestRide(ctx context.Context, data models.NewRideDTO, cfg *config.App, now time.Time) (models.Ride, error) {
+	u, err := models.FindOne[models.User](ctx, cfg.DBClient, models.UserCollection, bson.D{{"_id", data.UserID}})
+	if err != nil {
+		return models.Ride{}, fmt.Errorf("user with id %v not found: %w", data.UserID, err)
+	}
 
-func GetRide() {}
+	of, err := models.FindOne[models.Offer](ctx, cfg.DBClient, models.OfferCollection, bson.D{{"_id", data.OfferID}})
+	if err != nil {
+		return models.Ride{}, fmt.Errorf("offer with id %v not found: %w", data.OfferID, err)
+	}
 
-func RefreshRide() {}
+	pi, err := stripe.GetPaymentIntent(cfg.Env.Stripe.Key, data.StripeIntentID)
+	if err != nil {
+		return models.Ride{}, fmt.Errorf("no payment with id %v found: %w", data.StripeIntentID, err)
+	}
+
+	if pi.Status != stripe.PaymentIntentStatusSucceeded && pi.Status != stripe.PaymentIntentStatusRequiresCapture {
+		return models.Ride{}, fmt.Errorf("3DS process failed, please request a new ride and change the payment_method method")
+	}
+
+	rideInfo, err := provider.New(cfg).RequestRide(ctx, *of, provider.UserInfo{ID: u.ID, MySamID: u.MySamClientID}, of.Search, now)
+	if err != nil {
+		return models.Ride{}, fmt.Errorf("failed to request ride: [%w]", err)
+	}
+
+	payment := models.Payment{
+		Date:            now,
+		Status:          string(pi.Status),
+		PreAuthID:       data.StripeIntentID,
+		PreAuthPrice:    rideInfo.Price,
+		PaymentMethodID: pi.PaymentMethod.ID,
+		CreatedAt:       now.String(),
+		UpdatedAt:       now.String(),
+	}
+
+	ride := models.Ride{
+		ID:                  validate.GenerateID(),
+		ProviderName:        of.Provider,
+		UserID:              u.ID,
+		OfferID:             of.ID,
+		ProviderRideID:      rideInfo.Id,
+		IsPlanned:           of.IsPlanned,
+		ETA:                 rideInfo.ETA,
+		CancellationFees:    0,
+		StartDate:           of.StartDate,
+		PaymentByTGS:        true,
+		Aggregator:          data.AggregatorCode,
+		Status:              rideInfo.Status,
+		ProviderPrice:       rideInfo.Price,
+		DisplayPrice:        of.DisplayPrice,
+		DisplayPriceNumeric: of.DisplayPriceNumeric,
+		PriceStatus:         "pending",
+		Review:              models.Review{},
+		Invoice:             models.Invoice{},
+		Payment:             payment,
+		Driver:              rideInfo.Driver,
+		CreatedAt:           now.String(),
+		UpdatedAt:           now.String(),
+	}
+
+	if err := models.InsertOne[models.Ride](ctx, cfg.DBClient, models.RideCollection, &ride); err != nil {
+		return models.Ride{}, fmt.Errorf("failed to save ride: %v", err)
+	}
+
+	return ride, err
+}
+
+func GetRide(ctx context.Context, id string, cfg *config.App) (models.Ride, error) {
+	ride, err := models.FindOne[models.Ride](ctx, cfg.DBClient, models.RideCollection, bson.D{{"_id", id}})
+	return *ride, err
+}
 
 func CancelRide() {}
+
+func RefreshRide() {}
