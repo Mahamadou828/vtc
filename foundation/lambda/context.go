@@ -19,6 +19,7 @@ type RequestTrace struct {
 	Now        time.Time
 	StatusCode int
 	Aggregator string
+	Path       string
 }
 
 func GetRequestTrace(ctx context.Context) (*RequestTrace, error) {

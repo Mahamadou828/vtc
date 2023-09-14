@@ -37,6 +37,10 @@ func SendResponse(ctx context.Context, status int, data any) (events.APIGatewayP
 
 // SendError format an error response to match the api proxy response spec
 func SendError(ctx context.Context, status int, err error) (events.APIGatewayProxyResponse, error) {
+	// report error back to sentry
+	rt, _ := GetRequestTrace(ctx)
+	CaptureError(rt, status, err)
+
 	data := struct {
 		Message string `json:"message"`
 	}{

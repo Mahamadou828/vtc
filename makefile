@@ -28,6 +28,9 @@ db-up:
 	docker compose up mongo -d
 	docker compose up mongo-express -d
 
+db-stop:
+	docker compose down
+
 #=================================================== lambda
 event-format:
 	go run app/tools/test/main.go --endpointURL="$(endpointURL)" --eventFile="$(baseEventFilePath)/$(event).json"
@@ -39,9 +42,6 @@ lambda-start:
 	go run app/tools/test/main.go --endpointURL="$(endpointURL)" --eventFile="$(baseEventFilePath)/$(event).json"
 	docker build -t lambda:local --build-arg codeURI=$(codeURI) .
 	docker compose up
-
-stop:
-	docker compose down
 
 lambda-update:
 	docker build -t lambda:local --build-arg codeURI=$(codeURI) .

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/getsentry/sentry-go"
 	"go.mongodb.org/mongo-driver/mongo"
 	"vtc/business/v1/sys/aws/ssm"
 	"vtc/business/v1/sys/database"
@@ -68,6 +70,20 @@ func NewApp() (*App, error) {
 	if err != nil {
 		return nil, ErrSecretNotFound
 	}
+
+	//Configuring sentry monitoring.
+	if err := sentry.Init(sentry.ClientOptions{
+		Dsn:              "https://1567c85ae6f04d988eec860a82d6f5b5@o1236486.ingest.sentry.io/6386545",
+		Environment:      os.Getenv("APP_ENV"),
+		Release:          fmt.Sprintf("%s@%s", "1.0", os.Getenv("APP_ENV")),
+		Debug:            os.Getenv("APP_ENV") == "development",
+		AttachStacktrace: true,
+		TracesSampleRate: 0.2, //see sampling https://docs.sentry.io/platforms/go/configuration/sampling/
+	}); err != nil {
+		return nil, err
+	}
+
+	defer sentry.Flush(2 * time.Second)
 
 	// open new database client
 	client, err := database.NewClient(database.Config{

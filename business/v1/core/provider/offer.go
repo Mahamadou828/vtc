@@ -63,6 +63,10 @@ func GetOffers(ctx context.Context, data models.GetOfferDTO, cfg *config.App, ag
 		return nil, fmt.Errorf("failed to fetch offer: [%w]", err)
 	}
 
+	if len(offers) <= 0 {
+		return offers, nil
+	}
+
 	if err := models.InsertMany[models.Offer](ctx, cfg.DBClient, models.OfferCollection, offers); err != nil {
 		return nil, fmt.Errorf("failed to save offers: [%w]", err)
 	}

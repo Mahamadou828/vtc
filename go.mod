@@ -10,6 +10,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.256
 	github.com/aws/constructs-go/constructs/v10 v10.2.9
 	github.com/aws/jsii-runtime-go v1.80.0
+	github.com/getsentry/sentry-go v0.24.1
 	github.com/go-faker/faker/v4 v4.1.0
 	github.com/go-playground/locales v0.14.1
 	github.com/go-playground/universal-translator v0.18.1
@@ -28,9 +29,9 @@ require (
 	github.com/cdklabs/awscdk-asset-kubectl-go/kubectlv20/v2 v2.1.1 // indirect
 	github.com/cdklabs/awscdk-asset-node-proxy-agent-go/nodeproxyagentv5/v2 v2.0.129 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
-	github.com/golang/snappy v0.0.1 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/klauspost/compress v1.13.6 // indirect
+	github.com/klauspost/compress v1.16.0 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/mattn/go-isatty v0.0.18 // indirect
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe // indirect
